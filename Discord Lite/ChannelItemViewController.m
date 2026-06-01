@@ -130,7 +130,8 @@ static NSImage *DLVoiceChannelImage(void) {
         [self setType:ChannelItemViewTypeParent];
         [parentChannelLabel setStringValue:[(DLServerChannel *)representedObject name]];
     } else {
-        [childChannelLabel setStringValue:[(DLServerChannel *)representedObject name]];
+        NSString *channelName = [(DLServerChannel *)representedObject name];
+        [childChannelLabel setStringValue:channelName ? channelName : @""];
         if ([representedObject type] == ChannelTypeVoice) {
             [channelImageView setImage:DLVoiceChannelImage()];
         } else {

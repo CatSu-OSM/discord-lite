@@ -15,6 +15,7 @@
     // Drawing code here.
 }
 -(void)awakeFromNib {
+    scrollWheelEnabled = YES;
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(screenResize) name:NSWindowDidResizeNotification object:nil];
     NSRect frame = [self.contentView frame];
     frame.size.height = 100;
@@ -25,6 +26,15 @@
 }
 -(NSArray *)content {
     return content;
+}
+-(void)setScrollWheelEnabled:(BOOL)enabled {
+    scrollWheelEnabled = enabled;
+}
+-(void)scrollWheel:(NSEvent *)theEvent {
+    if (!scrollWheelEnabled) {
+        return;
+    }
+    [super scrollWheel:theEvent];
 }
 -(void)screenResize {
     CGFloat currentHeight = 0;
@@ -46,6 +56,12 @@
         itemFrame.size.width = frame.size.width;
         itemFrame.origin.y = currentHeight;
         item.view.frame = itemFrame;
+        if ([item respondsToSelector:@selector(chatScrollViewWidthDidChange)]) {
+            [item performSelector:@selector(chatScrollViewWidthDidChange)];
+            itemFrame = item.view.frame;
+            itemFrame.origin.y = currentHeight;
+            item.view.frame = itemFrame;
+        }
         [item.view setNeedsDisplay:YES];
         currentHeight += [item expectedHeight];
     }
@@ -111,6 +127,19 @@
     keepsNewestMessageVisible = YES;
     e = [content objectEnumerator];
     while (item = [e nextObject]) {
+        CGFloat expectedHeight = [item expectedHeight];
+        NSRect itemFrame = item.view.frame;
+        height += expectedHeight;
+        itemFrame.size.height = expectedHeight;
+        itemFrame.size.width = [self.documentView frame].size.width;
+        itemFrame.origin.y = [self.documentView frame].size.height - height;
+        item.view.frame = itemFrame;
+        if ([item respondsToSelector:@selector(chatScrollViewWidthDidChange)]) {
+            [item performSelector:@selector(chatScrollViewWidthDidChange)];
+            itemFrame = item.view.frame;
+            itemFrame.origin.y = [self.documentView frame].size.height - height;
+            item.view.frame = itemFrame;
+        }
         [self.documentView addSubview:item.view];
     }
     [self screenResize];

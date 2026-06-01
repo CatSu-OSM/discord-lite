@@ -23,11 +23,13 @@
     NSTimeInterval latestMessageScrollStartTime;
     CGFloat latestMessageScrollStartY;
     CGFloat latestMessageScrollTargetY;
+    BOOL scrollWheelEnabled;
 }
 
 -(NSArray *)content;
 
 -(void)setDelegate:(id<ChatScrollViewDelegate>)inDelegate;
+-(void)setScrollWheelEnabled:(BOOL)enabled;
 -(void)setContent:(NSArray *)inContent;
 -(void)appendContent:(NSArray *)inContent;
 -(void)prependViewController:(ChatItemViewController *)vc;
