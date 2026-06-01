@@ -12,12 +12,15 @@
 @interface DLServerMember : NSObject {
     DLUser *user;
     NSArray *roles;
+    NSString *nick;
 }
 
 -(id)initWithDict:(NSDictionary *)d;
 
 -(DLUser *)user;
 -(NSArray *)roles;
+-(NSString *)nick;
+-(NSString *)displayNameForUser:(DLUser *)u;
 
 -(void)setUser:(DLUser *)u;
 

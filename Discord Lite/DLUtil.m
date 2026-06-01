@@ -13,7 +13,14 @@
 static NSDictionary *superPropertiesDict;
 
 +(NSImage *)imageResize:(NSImage*)anImage newSize:(NSSize)newSize cornerRadius:(CGFloat)radius {
-    
+    if (!anImage || newSize.width <= 0.0f || newSize.height <= 0.0f) {
+        return nil;
+    }
+    CGFloat maxRadius = MIN(newSize.width, newSize.height) / 2.0f;
+    if (radius > maxRadius) {
+        radius = maxRadius;
+    }
+
     [anImage setScalesWhenResized:YES];
     NSImage *smallImage = [[NSImage alloc] initWithSize: newSize];
     [smallImage lockFocus];
@@ -27,6 +34,49 @@ static NSDictionary *superPropertiesDict;
     [anImage drawAtPoint:NSZeroPoint fromRect:NSMakeRect(0, 0, newSize.width, newSize.height) operation:NSCompositeSourceOver fraction:1.0];
     [smallImage unlockFocus];
     return [smallImage autorelease];
+}
++(NSColor *)statusIndicatorColorForStatus:(NSString *)status {
+    if ([status isEqualToString:@"idle"]) {
+        return [NSColor colorWithCalibratedRed:250.0f/255.0f green:168.0f/255.0f blue:26.0f/255.0f alpha:1.0f];
+    }
+    if ([status isEqualToString:@"dnd"]) {
+        return [NSColor colorWithCalibratedRed:242.0f/255.0f green:63.0f/255.0f blue:67.0f/255.0f alpha:1.0f];
+    }
+    if ([status isEqualToString:@"online"]) {
+        return [NSColor colorWithCalibratedRed:35.0f/255.0f green:165.0f/255.0f blue:89.0f/255.0f alpha:1.0f];
+    }
+    return [NSColor colorWithCalibratedRed:128.0f/255.0f green:132.0f/255.0f blue:142.0f/255.0f alpha:1.0f];
+}
++(void)drawStatusIndicatorForStatus:(NSString *)status inRect:(NSRect)rect {
+    CGFloat minSide = MIN(rect.size.width, rect.size.height);
+    CGFloat outerSize = MAX(10.0f, floorf(minSide * 0.40f));
+    CGFloat innerInset = MAX(2.0f, floorf(outerSize * 0.20f));
+    NSRect outerRect = NSMakeRect(NSMaxX(rect) - outerSize - 1.0f,
+                                  NSMinY(rect) - floorf(outerSize * 0.15f),
+                                  outerSize,
+                                  outerSize);
+    NSBezierPath *outerPath = [NSBezierPath bezierPathWithOvalInRect:outerRect];
+    [[NSColor colorWithCalibratedRed:49.0f/255.0f green:52.0f/255.0f blue:58.0f/255.0f alpha:1.0f] set];
+    [outerPath fill];
+
+    NSRect innerRect = NSInsetRect(outerRect, innerInset, innerInset);
+    NSBezierPath *innerPath = [NSBezierPath bezierPathWithOvalInRect:innerRect];
+    [[self statusIndicatorColorForStatus:status] set];
+    [innerPath fill];
+}
++(NSImage *)imageResize:(NSImage *)anImage newSize:(NSSize)newSize cornerRadius:(CGFloat)radius status:(NSString *)status {
+    NSImage *baseImage = [self imageResize:anImage newSize:newSize cornerRadius:radius];
+    if (!baseImage) {
+        return nil;
+    }
+    NSImage *statusImage = [[NSImage alloc] initWithSize:newSize];
+    [statusImage lockFocus];
+    [baseImage drawAtPoint:NSZeroPoint fromRect:NSMakeRect(0.0f, 0.0f, newSize.width, newSize.height) operation:NSCompositeSourceOver fraction:1.0f];
+
+    [self drawStatusIndicatorForStatus:status inRect:NSMakeRect(0.0f, 0.0f, newSize.width, newSize.height)];
+
+    [statusImage unlockFocus];
+    return [statusImage autorelease];
 }
 +(NSString *)appVersionString {
     return [[NSBundle mainBundle] objectForInfoDictionaryKey: @"CFBundleShortVersionString"];
@@ -52,7 +102,7 @@ static NSDictionary *superPropertiesDict;
     for (int i=0; i<len; i++) {
         [randomString appendFormat: @"%d", arc4random() % 10];
     }
-    
+
     return randomString;
 }
 +(NSString *)mimeTypeForExtension:(NSString *)ext {

@@ -15,6 +15,8 @@
 @interface DLUtil : NSObject
 
 +(NSImage *)imageResize:(NSImage*)anImage newSize:(NSSize)newSize cornerRadius:(CGFloat)radius;
++(NSImage *)imageResize:(NSImage *)anImage newSize:(NSSize)newSize cornerRadius:(CGFloat)radius status:(NSString *)status;
++(void)drawStatusIndicatorForStatus:(NSString *)status inRect:(NSRect)rect;
 +(NSString *)appVersionString;
 +(NSString *)networkVersionString;
 +(NSString *)kernelVersion;

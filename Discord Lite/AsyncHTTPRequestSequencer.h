@@ -9,7 +9,7 @@
 #import <Foundation/Foundation.h>
 #import "AsyncHTTPRequestSequencerObject.h"
 
-#define MAX_CONCURRENT_REQUESTS 10
+#define MAX_CONCURRENT_REQUESTS 4
 
 @interface AsyncHTTPRequestSequencer : NSObject {
     AsyncHTTPRequestSequencerObject *waitingFirstObject;

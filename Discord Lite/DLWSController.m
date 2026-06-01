@@ -23,6 +23,7 @@ static NSMutableDictionary* receivedVoiceWSBinaryByHandle;
 static NSMutableDictionary* voiceWebSocketGenerationsByHandle;
 
 static DLWSController* sharedObject = nil;
+static NSString *DLDiscordLiteOSXLogoURL = @"https://upload.wikimedia.org/wikipedia/commons/thumb/0/08/The_OS_X_Logo.svg/250px-The_OS_X_Logo.svg.png";
 
 static BOOL DLVoiceStringIsUsable(id value) {
     return value && value != [NSNull null] && [value isKindOfClass:[NSString class]] && [value length] > 0;
@@ -112,7 +113,6 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     }
     CURL *easy = p;
     const struct curl_ws_frame *frame = curl_ws_meta(easy);
-    
     [receivedWSData appendBytes:b length:nitems * size];
     if (frame->bytesleft < 1) {
         NSData *resData = [NSData dataWithData:receivedWSData];
@@ -150,13 +150,13 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
 }
 
 -(void)startWebSocketThread {
-    
+
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-    
+
     CURLcode res;
-    
+
     printf("libcurl version %s\n", curl_version());
-    
+
     curlWebSocketHandle = curl_easy_init();
     if (curlWebSocketHandle) {
         curl_easy_setopt(curlWebSocketHandle, CURLOPT_URL, WS_GATEWAY_URL);
@@ -165,7 +165,7 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
         curl_easy_setopt(curlWebSocketHandle, CURLOPT_USERAGENT, [[DLUtil userAgentString] UTF8String]);
         curl_easy_setopt(curlWebSocketHandle, CURLOPT_WRITEFUNCTION, writecb);
         curl_easy_setopt(curlWebSocketHandle, CURLOPT_WRITEDATA, curlWebSocketHandle);
-        
+
         res = curl_easy_perform(curlWebSocketHandle);
         if (res != CURLE_OK) {
             printf("curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
@@ -174,8 +174,8 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
         curlWebSocketHandle = nil;
     }
     [pool release];
-    
-    
+
+
     NSLog(@"Websocket Closed");
 }
 
@@ -186,6 +186,10 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     [NSThread detachNewThreadSelector:@selector(startWebSocketThread) toTarget:self withObject:nil];
 }
 -(void)stop {
+    if (presenceUpdateTimer) {
+        [presenceUpdateTimer invalidate];
+        presenceUpdateTimer = nil;
+    }
     voiceGeneration++;
     if (heartbeatTimer) {
         [heartbeatTimer invalidate];
@@ -229,11 +233,226 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     [voiceClientIDs removeAllObjects];
     shouldResume = NO;
 }
+
+-(NSString *)outputFromTaskAtPath:(NSString *)launchPath arguments:(NSArray *)arguments {
+    NSPipe *pipe = [NSPipe pipe];
+    NSTask *task = [[NSTask alloc] init];
+    [task setLaunchPath:launchPath];
+    [task setArguments:arguments];
+    [task setStandardOutput:pipe];
+    [task setStandardError:[NSPipe pipe]];
+    [task launch];
+    NSData *data = [[pipe fileHandleForReading] readDataToEndOfFile];
+    [task waitUntilExit];
+    [task release];
+    return [[[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] autorelease];
+}
+
+-(NSString *)hardwareModelName {
+    static NSString *modelName = nil;
+    if (modelName) {
+        return modelName;
+    }
+
+    NSString *output = [self outputFromTaskAtPath:@"/usr/sbin/system_profiler" arguments:[NSArray arrayWithObject:@"SPHardwareDataType"]];
+    NSArray *lines = [output componentsSeparatedByString:@"\n"];
+    NSEnumerator *e = [lines objectEnumerator];
+    NSString *line;
+    while (line = [e nextObject]) {
+        NSRange range = [line rangeOfString:@"Model Name:"];
+        if (range.location != NSNotFound) {
+            NSString *value = [[line substringFromIndex:range.location + range.length] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+            if ([value length]) {
+                modelName = [value retain];
+                return modelName;
+            }
+        }
+    }
+
+    modelName = [@"Mac" retain];
+    return modelName;
+}
+
+-(NSString *)osVersionString {
+    static NSString *osVersion = nil;
+    if (osVersion) {
+        return osVersion;
+    }
+
+    NSDictionary *versionInfo = [NSDictionary dictionaryWithContentsOfFile:@"/System/Library/CoreServices/SystemVersion.plist"];
+    NSString *productName = [versionInfo objectForKey:@"ProductName"];
+    NSString *productVersion = [versionInfo objectForKey:@"ProductVersion"];
+    if ([productName length] && [productVersion length]) {
+        osVersion = [[NSString stringWithFormat:@"%@ %@", productName, productVersion] retain];
+    } else {
+        osVersion = [[[NSProcessInfo processInfo] operatingSystemVersionString] retain];
+    }
+    return osVersion;
+}
+
+-(void)evaluateSensorWithLocation:(NSString *)location rawValue:(unsigned long long)rawValue maxTemperature:(float *)maxTemperature {
+    if (![location length] || rawValue == 0) {
+        return;
+    }
+    if ([location rangeOfString:@"CPU" options:NSCaseInsensitiveSearch].location == NSNotFound) {
+        return;
+    }
+    if ([location rangeOfString:@"TEMP" options:NSCaseInsensitiveSearch].location == NSNotFound) {
+        return;
+    }
+
+    float temperature = rawValue / 65536.0f;
+    if (temperature <= 0.0f || temperature > 150.0f) {
+        return;
+    }
+    if (temperature > *maxTemperature) {
+        *maxTemperature = temperature;
+    }
+}
+
+-(NSString *)maxCPUTemperatureString {
+    NSString *output = [self outputFromTaskAtPath:@"/usr/sbin/ioreg" arguments:[NSArray arrayWithObjects:@"-r", @"-c", @"IOHWSensor", nil]];
+    NSArray *lines = [output componentsSeparatedByString:@"\n"];
+    NSString *location = nil;
+    unsigned long long rawValue = 0;
+    float maxTemperature = 0.0f;
+
+    NSEnumerator *e = [lines objectEnumerator];
+    NSString *line;
+    while (line = [e nextObject]) {
+        if ([line rangeOfString:@"+-o IOHWSensor"].location != NSNotFound) {
+            [self evaluateSensorWithLocation:location rawValue:rawValue maxTemperature:&maxTemperature];
+            location = nil;
+            rawValue = 0;
+        } else if ([line rangeOfString:@"\"current-value\""].location != NSNotFound) {
+            NSRange equalsRange = [line rangeOfString:@"="];
+            if (equalsRange.location != NSNotFound) {
+                NSString *value = [[line substringFromIndex:equalsRange.location + 1] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+                rawValue = strtoull([value UTF8String], NULL, 10);
+            }
+        } else if ([line rangeOfString:@"\"location\""].location != NSNotFound) {
+            NSRange equalsRange = [line rangeOfString:@"="];
+            if (equalsRange.location != NSNotFound) {
+                NSRange firstQuote = [line rangeOfString:@"\"" options:0 range:NSMakeRange(equalsRange.location, [line length] - equalsRange.location)];
+                if (firstQuote.location != NSNotFound) {
+                    NSRange searchRange = NSMakeRange(firstQuote.location + 1, [line length] - firstQuote.location - 1);
+                    NSRange secondQuote = [line rangeOfString:@"\"" options:0 range:searchRange];
+                    if (secondQuote.location != NSNotFound) {
+                        location = [line substringWithRange:NSMakeRange(firstQuote.location + 1, secondQuote.location - firstQuote.location - 1)];
+                    }
+                }
+            }
+        }
+    }
+    [self evaluateSensorWithLocation:location rawValue:rawValue maxTemperature:&maxTemperature];
+
+    if (maxTemperature > 0.0f) {
+        return [NSString stringWithFormat:@"Max CPU temp: %.1f C", maxTemperature];
+    }
+    return @"Max CPU temp unavailable";
+}
+
+-(NSString *)normalizedStatus:(NSString *)status {
+    if (![status isKindOfClass:[NSString class]] || ![status length]) {
+        return @"online";
+    }
+    if ([status isEqualToString:@"online"] || [status isEqualToString:@"idle"] || [status isEqualToString:@"dnd"] || [status isEqualToString:@"invisible"]) {
+        return status;
+    }
+    if ([status isEqualToString:@"offline"]) {
+        return @"invisible";
+    }
+    return @"online";
+}
+
+-(NSString *)statusFromReadyData:(NSDictionary *)readyData {
+    NSDictionary *userSettings = [readyData objectForKey:@"user_settings"];
+    NSString *status = nil;
+    if ([userSettings isKindOfClass:[NSDictionary class]]) {
+        status = [userSettings objectForKey:@"status"];
+    }
+    if (![status isKindOfClass:[NSString class]] || ![status length]) {
+        NSArray *sessions = [readyData objectForKey:@"sessions"];
+        NSEnumerator *e = [sessions objectEnumerator];
+        NSDictionary *session;
+        while (session = [e nextObject]) {
+            status = [session objectForKey:@"status"];
+            if ([status isKindOfClass:[NSString class]] && [status length]) {
+                break;
+            }
+        }
+    }
+    return [self normalizedStatus:status];
+}
+
+-(void)setCurrentStatus:(NSString *)status {
+    NSString *normalized = [self normalizedStatus:status];
+    [currentStatus release];
+    currentStatus = [normalized retain];
+}
+
+-(NSString *)currentStatus {
+    if (!currentStatus) {
+        return @"online";
+    }
+    return currentStatus;
+}
+
 -(void)sendWSTextData:(NSData *)textData {
     if (curlWebSocketHandle) {
         size_t sent;
         curl_ws_send(curlWebSocketHandle, [textData bytes], [textData length], &sent, 0, CURLWS_TEXT);
     }
+}
+
+-(NSDictionary *)discordLiteActivity {
+    NSMutableDictionary *activity = [[NSMutableDictionary alloc] init];
+    [activity setObject:[NSString stringWithFormat:@"Online on %@", [self hardwareModelName]] forKey:@"name"];
+    [activity setObject:[NSNumber numberWithInt:0] forKey:@"type"];
+    [activity setObject:[self osVersionString] forKey:@"details"];
+    [activity setObject:[self maxCPUTemperatureString] forKey:@"state"];
+    [activity setObject:[NSDictionary dictionaryWithObjectsAndKeys:
+                         DLDiscordLiteOSXLogoURL, @"large_image",
+                         @"Classic Mac OS X", @"large_text",
+                         nil] forKey:@"assets"];
+    return [activity autorelease];
+}
+
+-(NSDictionary *)presenceWithActivities:(NSArray *)activities {
+    NSMutableDictionary *presence = [[NSMutableDictionary alloc] init];
+    [presence setObject:[self currentStatus] forKey:@"status"];
+    [presence setObject:[NSNumber numberWithInt:0] forKey:@"since"];
+    [presence setObject:activities forKey:@"activities"];
+    [presence setObject:[NSNumber numberWithBool:NO] forKey:@"afk"];
+    return [presence autorelease];
+}
+
+-(void)sendPresenceWithActivities:(NSArray *)activities {
+    NSMutableDictionary *d = [[NSMutableDictionary alloc] init];
+    [d setObject:[NSNumber numberWithInt:OPCodePresenceUpdate] forKey:@kWSOperation];
+    [d setObject:[self presenceWithActivities:activities] forKey:@kWSData];
+    NSData *str = [[CJSONSerializer serializer] serializeDictionary:d error:nil];
+    [self sendWSTextData:str];
+    [d release];
+}
+
+-(void)setDiscordLitePresence {
+    NSDictionary *activity = [self discordLiteActivity];
+    [self sendPresenceWithActivities:[NSArray arrayWithObject:activity]];
+    if ([delegate respondsToSelector:@selector(wsDidUpdateCurrentUserActivity:)]) {
+        [delegate wsDidUpdateCurrentUserActivity:activity];
+    }
+    if (!presenceUpdateTimer) {
+        presenceUpdateTimer = [NSTimer scheduledTimerWithTimeInterval:60.0 target:self selector:@selector(setDiscordLitePresence) userInfo:nil repeats:YES];
+    }
+}
+
+-(void)clearDiscordLitePresence {
+    if (presenceUpdateTimer) {
+        [presenceUpdateTimer invalidate];
+        presenceUpdateTimer = nil;
+    }
+    [self sendPresenceWithActivities:[NSArray array]];
 }
 
 -(void)sendWSHeartbeat {
@@ -274,12 +493,17 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
 }
 
 -(void)updateWSForChannel:(DLChannel *)c inServer:(DLServer *)s {
+    [self updateWSForChannel:c inServer:s memberRangeStart:0 limit:100];
+}
+
+-(void)updateWSForChannel:(DLChannel *)c inServer:(DLServer *)s memberRangeStart:(NSInteger)start limit:(NSInteger)limit {
     NSMutableDictionary *data = [[NSMutableDictionary alloc] init];
     [data setObject:[s serverID] forKey:@"guild_id"];
     [data setObject:[NSNumber numberWithBool:YES] forKey:@"typing"];
-    [data setObject:[NSNumber numberWithBool:NO] forKey:@"activities"];
-    [data setObject:[NSNumber numberWithBool:NO] forKey:@"threads"];
-    NSArray *channelInfo = [NSArray arrayWithObjects:[NSArray arrayWithObjects:[NSNumber numberWithInt:0], [NSNumber numberWithInt:99], nil], nil];
+    [data setObject:[NSNumber numberWithBool:YES] forKey:@"activities"];
+    [data setObject:[NSNumber numberWithBool:YES] forKey:@"threads"];
+    NSInteger end = start + limit - 1;
+    NSArray *channelInfo = [NSArray arrayWithObjects:[NSArray arrayWithObjects:[NSNumber numberWithInteger:start], [NSNumber numberWithInteger:end], nil], nil];
     NSMutableDictionary *channels = [[NSMutableDictionary alloc] init];
     [channels setObject:channelInfo forKey:[c channelID]];
     NSMutableDictionary *d = [[NSMutableDictionary alloc] init];
@@ -957,8 +1181,10 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
             } else if ([type isEqualToString:@"READY"]) {
                 NSDictionary *wsData = [res objectForKey:@kWSData];
                 sessionID = [[wsData objectForKey:@"session_id"] retain];
-                [userID release];
-                userID = [[[wsData objectForKey:@"user"] objectForKey:@"id"] retain];
+    [userID release];
+    userID = [[[wsData objectForKey:@"user"] objectForKey:@"id"] retain];
+    [self setCurrentStatus:[self statusFromReadyData:wsData]];
+    [self setDiscordLitePresence];
                 [delegate wsDidReceiveServerData:[wsData objectForKey:@"guilds"]];
                 [delegate wsDidReceiveUserSettingsData:[wsData objectForKey:@"user_settings"]];
                 [delegate wsDidReceiveUserData:[wsData objectForKey:@"user"]];
@@ -984,10 +1210,44 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
                 NSArray *memberData = [wsData objectForKey:@"members"];
                 NSString *serverID = [wsData objectForKey:@"guild_id"];
                 [delegate wsDidReceiveMemberData:memberData forServerWithID:serverID];
+            } else if ([type isEqualToString:@"GUILD_MEMBER_LIST_UPDATE"]) {
+                NSDictionary *wsData = [res objectForKey:@kWSData];
+                NSString *serverID = [wsData objectForKey:@"guild_id"];
+                NSMutableArray *members = [NSMutableArray array];
+                NSEnumerator *ops = [[wsData objectForKey:@"ops"] objectEnumerator];
+                NSDictionary *opData;
+                while (opData = [ops nextObject]) {
+                    NSEnumerator *items = [[opData objectForKey:@"items"] objectEnumerator];
+                    NSDictionary *item;
+                    while (item = [items nextObject]) {
+                        NSDictionary *member = [item objectForKey:@"member"];
+                        if ([member isKindOfClass:[NSDictionary class]]) {
+                            [members addObject:member];
+                        }
+                    }
+                }
+                if ([members count]) {
+                    [delegate wsDidReceiveMemberData:members forServerWithID:serverID];
+                }
             } else if ([type isEqualToString:@"MESSAGE_UPDATE"]) {
                 NSDictionary *wsData = [res objectForKey:@kWSData];
                 NSString *messageID = [wsData objectForKey:@"id"];
                 [delegate wsMessageWithID:messageID wasUpdatedWithData:wsData];
+            } else if ([type isEqualToString:@"THREAD_CREATE"] || [type isEqualToString:@"THREAD_UPDATE"] || [type isEqualToString:@"CHANNEL_CREATE"] || [type isEqualToString:@"CHANNEL_UPDATE"]) {
+                [delegate wsDidReceiveServerChannelData:[res objectForKey:@kWSData]];
+            } else if ([type isEqualToString:@"THREAD_LIST_SYNC"]) {
+                NSDictionary *wsData = [res objectForKey:@kWSData];
+                NSEnumerator *threadEnumerator = [[wsData objectForKey:@"threads"] objectEnumerator];
+                NSDictionary *threadData;
+                while (threadData = [threadEnumerator nextObject]) {
+                    [delegate wsDidReceiveServerChannelData:threadData];
+                }
+            } else if ([type isEqualToString:@"THREAD_DELETE"] || [type isEqualToString:@"CHANNEL_DELETE"]) {
+                NSDictionary *wsData = [res objectForKey:@kWSData];
+                [delegate wsDidDeleteServerChannelWithID:[wsData objectForKey:@"id"]];
+            } else if ([type isEqualToString:@"PRESENCE_UPDATE"]) {
+                NSDictionary *wsData = [res objectForKey:@kWSData];
+                [delegate wsDidReceivePresenceData:wsData forServerWithID:[wsData objectForKey:@"guild_id"]];
             } else if ([type isEqualToString:@"RESUMED"]) {
                 didResume = YES;
             }
@@ -1039,33 +1299,25 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
                     [heartbeatTimer invalidate];
                 }
                 heartbeatTimer = [NSTimer scheduledTimerWithTimeInterval:heartbeatInterval/1000.0 target:self selector:@selector(sendWSHeartbeat) userInfo:nil repeats:YES];
-                
+
                 NSMutableDictionary *d = [[NSMutableDictionary alloc] init];
                 [d setObject:[NSNumber numberWithInt:OPCodeIdentify] forKey:@kWSOperation];
                 [d setObject:[NSNumber numberWithBool:NO] forKey:@"compress"];
                 NSMutableDictionary *data = [[NSMutableDictionary alloc] init];
                 [data setObject:[NSString stringWithString:token] forKey:@"token"];
-                
+
                 NSMutableDictionary *platformProps = [[NSMutableDictionary alloc] init];
                 [platformProps setObject:@"Apple macOS" forKey:@"$os"];
                 [platformProps setObject:@"Apple macOS" forKey:@"$browser"];
                 [platformProps setObject:@"Apple Mac" forKey:@"$device"];
                 [data setObject:platformProps forKey:@"properties"];
-                
-                NSMutableDictionary *presence = [[NSMutableDictionary alloc] init];
-                [presence setObject:@"online" forKey:@"status"];
-                [presence setObject:[NSNumber numberWithInt:0] forKey:@"since"];
-                [presence setObject:[[NSArray alloc] init] forKey:@"activities"];
-                [presence setObject:[NSNumber numberWithBool:NO] forKey:@"afk"];
-                
-                [data setObject:presence forKey:@"presence"];
-                
+
                 [d setObject:data forKey:@kWSData];
-                
+
                 NSData *toSend = [[CJSONSerializer serializer] serializeDictionary:d error:nil];
                 [self sendWSTextData:toSend];
             }
-            
+
             break;
         }
         case OPCodeHeartbeat:

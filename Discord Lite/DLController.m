@@ -41,6 +41,11 @@ static DLController* sharedObject = nil;
 -(DLChannel *)selectedChannel {
     return selectedChannel;
 }
+-(void)setSelectedServer:(DLServer *)s {
+    [selectedServer release];
+    [s retain];
+    selectedServer = s;
+}
 -(void)setSelectedChannel:(DLChannel *)c {
     selectedChannel = c;
 }
@@ -82,7 +87,7 @@ static DLController* sharedObject = nil;
     [req setParameters:params];
     [req setHeaders:[NSDictionary dictionaryWithObjects:[NSArray arrayWithObjects:[DLUtil superPropertiesString], authFingerprint, nil] forKeys:[NSArray arrayWithObjects:@"X-Super-Properties", @"X-Fingerprint", nil]]];
     [req setIdentifier:RequestIDLogin];
-    
+
     [req setUrl:[@API_ROOT stringByAppendingString:@"/auth/login"]];
     [req start];
 }
@@ -95,7 +100,7 @@ static DLController* sharedObject = nil;
     [req setParameters:params];
     [req setHeaders:[NSDictionary dictionaryWithObjects:[NSArray arrayWithObjects:[DLUtil superPropertiesString], authFingerprint, nil] forKeys:[NSArray arrayWithObjects:@"X-Super-Properties", @"X-Fingerprint", nil]]];
     [req setIdentifier:RequestIDTwoFactor];
-    
+
     [req setUrl:[@API_ROOT stringByAppendingString:@"/auth/mfa/totp"]];
     [req start];
 }
@@ -121,7 +126,7 @@ static DLController* sharedObject = nil;
             [[DLWSController sharedInstance] updateWSForChannel:c inServer:selectedServer];
         }
     }
-    
+
     AsyncHTTPGetRequest *req = [[AsyncHTTPGetRequest alloc] init];
     [req setDelegate:self];
     [req setHeaders:[self requestHeaders]];
@@ -185,7 +190,7 @@ static DLController* sharedObject = nil;
     NSString *requestURL = [@API_ROOT stringByAppendingString:@"/auth/logout"];
     [req setUrl:requestURL];
     [req start];
-    
+
     token = @"";
     [[NSUserDefaults standardUserDefaults] setObject:token forKey:@kDefaultsToken];
     [[NSUserDefaults standardUserDefaults] synchronize];
@@ -199,6 +204,10 @@ static DLController* sharedObject = nil;
     myUser = nil;
     [myUserSettings release];
     myUserSettings = nil;
+    [currentUserStatus release];
+    currentUserStatus = nil;
+    [currentUserActivity release];
+    currentUserActivity = nil;
     [selectedServer release];
     selectedServer = nil;
     [selectedChannel release];
@@ -255,13 +264,11 @@ static DLController* sharedObject = nil;
     return servers;
 }
 -(NSArray *)channelsForServer:(DLServer *)s {
-    [selectedServer release];
-    [s retain];
-    selectedServer = s;
+    [self setSelectedServer:s];
     [selectedChannel release];
     selectedChannel = nil;
     NSMutableArray *channels = [[NSMutableArray alloc] init];
-    
+
     NSEnumerator *e = [[loadedChannels allKeys] objectEnumerator];
     NSString *channelKey;
     while (channelKey = [e nextObject]) {
@@ -270,30 +277,34 @@ static DLController* sharedObject = nil;
             [channels addObject:c];
         }
     }
-    
+
     NSMutableArray *parentChannels = [[NSMutableArray alloc] init];
     NSMutableArray *uncategorizedChannels = [[NSMutableArray alloc] init];
     NSMutableArray *childChannels = [[NSMutableArray alloc] init];
-    
+    NSMutableArray *threadChannels = [[NSMutableArray alloc] init];
+
     e = [channels objectEnumerator];
     DLServerChannel *c;
     while (c = [e nextObject]) {
-        if (c.type == ChannelTypeHeader) {
+        if ([c isThread]) {
+            [threadChannels addObject:c];
+        } else if (c.type == ChannelTypeHeader) {
             [parentChannels addObject:c];
         } else if (!c.parentID || [c.parentID isEqual:[NSNull null]]) {
             [uncategorizedChannels addObject:c];
-            
+
         } else {
             [childChannels addObject:c];
         }
     }
-    
+
     NSMutableArray *sortedParentChannels = [NSMutableArray arrayWithArray:[parentChannels sortedArrayUsingSelector:@selector(compare:)]];
     NSArray *sortedChildChannels = [childChannels sortedArrayUsingSelector:@selector(compare:)];
+    NSArray *sortedThreadChannels = [threadChannels sortedArrayUsingSelector:@selector(compare:)];
     NSArray *sortedUncategorizedChannels = [uncategorizedChannels sortedArrayUsingSelector:@selector(compare:)];
-    
-    
-    
+
+
+
     e = [sortedParentChannels objectEnumerator];
     while (c = [e nextObject]) {
         NSMutableArray *children = [[NSMutableArray alloc] init];
@@ -301,23 +312,44 @@ static DLController* sharedObject = nil;
         NSEnumerator *ee = [sortedChildChannels objectEnumerator];
         while(cc = [ee nextObject]) {
             if ((!cc.parentID || ![cc.parentID isEqual:[NSNull null]]) && [cc.parentID isEqualToString:c.channelID]) {
+                NSMutableArray *threadChildren = [[NSMutableArray alloc] init];
+                DLServerChannel *tc;
+                NSEnumerator *te = [sortedThreadChannels objectEnumerator];
+                while (tc = [te nextObject]) {
+                    if ((!tc.parentID || ![tc.parentID isEqual:[NSNull null]]) && [tc.parentID isEqualToString:cc.channelID]) {
+                        [threadChildren addObject:tc];
+                    }
+                }
+                [cc setChildren:threadChildren];
+                [threadChildren release];
                 [children addObject:cc];
             }
         }
         [c setChildren:children];
         [children release];
     }
-    
+
     e = [sortedUncategorizedChannels objectEnumerator];
     while (c = [e nextObject]) {
         if (c) {
+            NSMutableArray *threadChildren = [[NSMutableArray alloc] init];
+            DLServerChannel *tc;
+            NSEnumerator *te = [sortedThreadChannels objectEnumerator];
+            while (tc = [te nextObject]) {
+                if ((!tc.parentID || ![tc.parentID isEqual:[NSNull null]]) && [tc.parentID isEqualToString:c.channelID]) {
+                    [threadChildren addObject:tc];
+                }
+            }
+            [c setChildren:threadChildren];
+            [threadChildren release];
             [sortedParentChannels insertObject:c atIndex:0];
         }
     }
-    
+
     [channels release];
     [uncategorizedChannels release];
     [childChannels release];
+    [threadChannels release];
     [parentChannels release];
     return sortedParentChannels;
 }
@@ -333,7 +365,7 @@ static DLController* sharedObject = nil;
         if ([[c serverID] isEqualToString:[[self myServerItem] serverID]]) {
             [dms addObject:c];
         }
-        
+
     }
     NSArray *sorted = [dms sortedArrayUsingSelector:@selector(compare:)];
     [dms release];
@@ -348,6 +380,7 @@ static DLController* sharedObject = nil;
     [[DLWSController sharedInstance] startWithAuthToken:token];
 }
 -(void)stopWebSocket {
+    [[DLWSController sharedInstance] clearDiscordLitePresence];
     [[DLWSController sharedInstance] stop];
 }
 
@@ -374,6 +407,146 @@ static DLController* sharedObject = nil;
     return myServerItem;
 }
 
+-(NSString *)normalizedUserStatus:(NSString *)status {
+    if (![status isKindOfClass:[NSString class]] || ![status length]) {
+        return nil;
+    }
+    if ([status isEqualToString:@"online"] || [status isEqualToString:@"idle"] || [status isEqualToString:@"dnd"] || [status isEqualToString:@"offline"] || [status isEqualToString:@"invisible"]) {
+        return status;
+    }
+    return nil;
+}
+
+-(NSString *)statusFromUserSettingsDictionary:(NSDictionary *)data {
+    if (![data isKindOfClass:[NSDictionary class]]) {
+        return nil;
+    }
+    return [self normalizedUserStatus:[data objectForKey:@"status"]];
+}
+
+-(NSString *)userIDFromPresenceDictionary:(NSDictionary *)presence {
+    if (![presence isKindOfClass:[NSDictionary class]]) {
+        return nil;
+    }
+    NSDictionary *presenceUser = [presence objectForKey:@"user"];
+    NSString *userID = nil;
+    if ([presenceUser isKindOfClass:[NSDictionary class]]) {
+        userID = [presenceUser objectForKey:@"id"];
+    }
+    if (![userID isKindOfClass:[NSString class]] || ![userID length]) {
+        userID = [presence objectForKey:@"user_id"];
+    }
+    if (![userID isKindOfClass:[NSString class]] || ![userID length]) {
+        return nil;
+    }
+    return userID;
+}
+
+-(NSString *)activityStringFromActivity:(NSDictionary *)activity {
+    if (![activity isKindOfClass:[NSDictionary class]]) {
+        return nil;
+    }
+    NSString *name = [activity objectForKey:@"name"];
+    NSString *details = [activity objectForKey:@"details"];
+    NSString *state = [activity objectForKey:@"state"];
+    NSInteger type = [[activity objectForKey:@"type"] integerValue];
+    if (type == 4) {
+        return ([state isKindOfClass:[NSString class]] && [state length]) ? state : nil;
+    }
+    if (![name isKindOfClass:[NSString class]] || ![name length]) {
+        return nil;
+    }
+    NSString *prefix = @"Playing";
+    if (type == 1) {
+        prefix = @"Streaming";
+    } else if (type == 2) {
+        prefix = @"Listening to";
+    } else if (type == 3) {
+        prefix = @"Watching";
+    } else if (type == 5) {
+        prefix = @"Competing in";
+    }
+    NSMutableString *activityText = [NSMutableString stringWithFormat:@"%@ %@", prefix, name];
+    if ([details isKindOfClass:[NSString class]] && [details length]) {
+        [activityText appendFormat:@" - %@", details];
+    } else if ([state isKindOfClass:[NSString class]] && [state length]) {
+        [activityText appendFormat:@" - %@", state];
+    }
+    return activityText;
+}
+
+-(void)applyStatus:(NSString *)status activityText:(NSString *)activityText activityDictionary:(NSDictionary *)activityDictionary toUser:(DLUser *)user {
+    if (!user) {
+        return;
+    }
+    [user setStatus:status];
+    [user setActivityText:activityText];
+    [user setActivityDictionary:activityDictionary];
+}
+
+-(void)propagateStatus:(NSString *)status activityText:(NSString *)activityText activityDictionary:(NSDictionary *)activityDictionary forUserID:(NSString *)userID {
+    if (![userID isKindOfClass:[NSString class]] || ![userID length]) {
+        return;
+    }
+    if (myUser && [[[self myUser] userID] isEqualToString:userID]) {
+        NSString *normalized = [self normalizedUserStatus:status];
+        if (normalized) {
+            [currentUserStatus release];
+            currentUserStatus = [normalized retain];
+        }
+        [self applyStatus:status activityText:activityText activityDictionary:activityDictionary toUser:myUser];
+    }
+
+    NSEnumerator *serverEnumerator = [[loadedServers allValues] objectEnumerator];
+    DLServer *server;
+    while (server = [serverEnumerator nextObject]) {
+        DLServerMember *member = [server memberWithUserID:userID];
+        if (member) {
+            [self applyStatus:status activityText:activityText activityDictionary:activityDictionary toUser:[member user]];
+        }
+    }
+
+    NSEnumerator *channelEnumerator = [[loadedChannels allValues] objectEnumerator];
+    DLChannel *channel;
+    while (channel = [channelEnumerator nextObject]) {
+        if ([channel isKindOfClass:[DLDirectMessageChannel class]]) {
+            DLUser *recipient = [(DLDirectMessageChannel *)channel recipientWithUserID:userID];
+            if (recipient) {
+                [self applyStatus:status activityText:activityText activityDictionary:activityDictionary toUser:recipient];
+            }
+        }
+    }
+}
+
+-(void)propagatePresenceDictionary:(NSDictionary *)presence inServer:(DLServer *)server {
+    NSString *userID = [self userIDFromPresenceDictionary:presence];
+    if (!userID) {
+        return;
+    }
+    DLServerMember *member = [server memberWithUserID:userID];
+    if (member) {
+        [self propagateStatus:[[member user] status] activityText:[[member user] activityText] activityDictionary:[[member user] activityDictionary] forUserID:userID];
+    }
+}
+
+-(void)syncPresenceForKnownUsers {
+    NSEnumerator *serverEnumerator = [[loadedServers allValues] objectEnumerator];
+    DLServer *server;
+    while (server = [serverEnumerator nextObject]) {
+        NSEnumerator *memberEnumerator = [[server members] objectEnumerator];
+        DLServerMember *member;
+        while (member = [memberEnumerator nextObject]) {
+            DLUser *user = [member user];
+            if ([user isOnline] || [[user status] isEqualToString:@"idle"] || [[user status] isEqualToString:@"dnd"]) {
+                [self propagateStatus:[user status] activityText:[user activityText] activityDictionary:[user activityDictionary] forUserID:[user userID]];
+            }
+        }
+    }
+    if (myUser && currentUserStatus) {
+        [myUser setStatus:currentUserStatus];
+    }
+}
+
 -(NSString *)authFingerprint {
     return authFingerprint;
 }
@@ -382,11 +555,54 @@ static DLController* sharedObject = nil;
     [[DLWSController sharedInstance] queryServer:s forMembersContainingUsername:username];
 }
 
+-(void)requestMembersForSelectedChannelStartingAt:(NSInteger)start limit:(NSInteger)limit {
+    if (selectedServer && selectedChannel && ![selectedServer isEqual:[self myServerItem]]) {
+        [[DLWSController sharedInstance] updateWSForChannel:selectedChannel inServer:selectedServer memberRangeStart:start limit:limit];
+    }
+}
+
+-(DLServerChannel *)memberListAnchorChannelForServer:(DLServer *)server {
+    if (!server || [server isEqual:[self myServerItem]]) {
+        return nil;
+    }
+    DLServerChannel *fallback = nil;
+    NSEnumerator *e = [[loadedChannels allValues] objectEnumerator];
+    DLChannel *channel;
+    while (channel = [e nextObject]) {
+        if (![channel isKindOfClass:[DLServerChannel class]]) {
+            continue;
+        }
+        DLServerChannel *serverChannel = (DLServerChannel *)channel;
+        if (![[serverChannel serverID] isEqualToString:[server serverID]]) {
+            continue;
+        }
+        if ([serverChannel isThread] || [serverChannel type] == ChannelTypeHeader) {
+            continue;
+        }
+        if ([serverChannel type] == ChannelTypeStandard || [serverChannel type] == ChannelTypeAnnouncements) {
+            return serverChannel;
+        }
+        if (!fallback) {
+            fallback = serverChannel;
+        }
+    }
+    return fallback;
+}
+
+-(BOOL)requestMembersForServer:(DLServer *)server startingAt:(NSInteger)start limit:(NSInteger)limit {
+    DLServerChannel *channel = [self memberListAnchorChannelForServer:server];
+    if (channel) {
+        [[DLWSController sharedInstance] updateWSForChannel:channel inServer:server memberRangeStart:start limit:limit];
+        return YES;
+    }
+    return NO;
+}
+
 
 #pragma mark Response Handlers
 
 -(void)handleLoginRequestResponse:(AsyncHTTPRequest *)req {
-    
+
     switch ([req result]) {
         case HTTPResultOK: {
             NSDictionary *resDict = nil;
@@ -420,7 +636,7 @@ static DLController* sharedObject = nil;
                 }
                 [loginDelegate didLoginWithError:[DLError requestErrorWithMessage:message]];
             }
-            
+
             break;
         }
         case HTTPResultErrGeneral: {
@@ -527,7 +743,7 @@ static DLController* sharedObject = nil;
             [self handleMessagesRequestResponse:request];
             break;
         case RequestIDLogout:
-            
+
             break;
         case RequestIDSendMessage:
             [self handleSendMessageRequestResponse:request];
@@ -563,16 +779,50 @@ static DLController* sharedObject = nil;
             [c release];
         }
     }
+    [self syncPresenceForKnownUsers];
+}
+
+-(void)wsDidReceiveServerChannelData:(NSDictionary *)data {
+    NSString *channelID = [data objectForKey:@"id"];
+    NSString *serverID = [data objectForKey:@"guild_id"];
+    if (!channelID || [channelID isKindOfClass:[NSNull class]] || !serverID || [serverID isKindOfClass:[NSNull class]]) {
+        return;
+    }
+    DLServerChannel *c = [loadedChannels objectForKey:channelID];
+    if (c) {
+        [c updateWithDict:data];
+    } else {
+        c = [[DLServerChannel alloc] initWithDict:data];
+        [loadedChannels setObject:c forKey:channelID];
+        [c release];
+    }
+    [c setServerID:serverID];
+}
+
+-(void)wsDidDeleteServerChannelWithID:(NSString *)channelID {
+    if (!channelID || [channelID isKindOfClass:[NSNull class]]) {
+        return;
+    }
+    [loadedChannels removeObjectForKey:channelID];
 }
 
 -(void)wsDidReceiveServerData:(NSArray *)data {
     NSEnumerator *e = [data objectEnumerator];
     NSDictionary *serverData;
     while (serverData = [e nextObject]) {
+        DLServer *server = nil;
         if (![loadedServers objectForKey:[serverData objectForKey:@"id"]]) {
             DLServer *s = [[DLServer alloc] initWithDict:serverData];
             [loadedServers setObject:s forKey:[serverData objectForKey:@"id"]];
+            server = s;
             [s release];
+        } else {
+            server = [loadedServers objectForKey:[serverData objectForKey:@"id"]];
+        }
+        NSEnumerator *presenceEnumerator = [[serverData objectForKey:@"presences"] objectEnumerator];
+        NSDictionary *presenceData;
+        while (presenceData = [presenceEnumerator nextObject]) {
+            [self propagatePresenceDictionary:presenceData inServer:server];
         }
         NSEnumerator *ee = [[serverData objectForKey:@"channels"] objectEnumerator];
         NSDictionary *channelData;
@@ -584,34 +834,63 @@ static DLController* sharedObject = nil;
                 [c release];
             }
         }
+        ee = [[serverData objectForKey:@"threads"] objectEnumerator];
+        while (channelData = [ee nextObject]) {
+            if (![loadedChannels objectForKey:[channelData objectForKey:@"id"]]) {
+                DLServerChannel *c = [[DLServerChannel alloc] initWithDict:channelData];
+                [c setServerID:[serverData objectForKey:@"id"]];
+                [loadedChannels setObject:c forKey:[channelData objectForKey:@"id"]];
+                [c release];
+            }
+        }
     }
     [loadedServers setObject:[self myServerItem] forKey:[[self myServerItem] serverID]];
+    [self syncPresenceForKnownUsers];
 }
 
 -(void)wsDidReceiveReadStateData:(NSArray *)data {
-    
+
     NSEnumerator *e = [[loadedServers allKeys] objectEnumerator];
     NSString *key;
     while (key = [e nextObject]) {
+        [[loadedServers objectForKey:key] setHasUnreadMessages:NO];
         [[loadedServers objectForKey:key] setMentionCount:0];
     }
-    
+    e = [[loadedChannels allValues] objectEnumerator];
+    DLChannel *channel;
+    while (channel = [e nextObject]) {
+        [channel setHasUnreadMessages:NO];
+        [channel setMentionCount:0];
+    }
+
     e = [data objectEnumerator];
     NSDictionary *channelData;
     while (channelData = [e nextObject]) {
-        if ([loadedChannels objectForKey:[channelData objectForKey:@"id"]]) {
-            DLChannel *c = [loadedChannels objectForKey:[channelData objectForKey:@"id"]];
+        NSString *channelID = [channelData objectForKey:@"id"];
+        if (![channelID isKindOfClass:[NSString class]] || ![channelID length]) {
+            channelID = [channelData objectForKey:@"channel_id"];
+        }
+        if ([loadedChannels objectForKey:channelID]) {
+            DLChannel *c = [loadedChannels objectForKey:channelID];
             DLServer *associatedServer = [self loadedServerWithID:[c serverID]];
-            [c setMentionCount:[[channelData objectForKey:@"mention_count"] intValue]];
-            [associatedServer addMentionCount:[[channelData objectForKey:@"mention_count"] intValue]];
-            
-            if ([channelData objectForKey:@"last_message_id"] != [NSNull null] && [c lastMessage]) {
-                if (![[[c lastMessage] messageID] isEqualToString:[channelData objectForKey:@"last_message_id"]] && ![c isEqual:selectedChannel]) {
+            NSInteger mentionCount = [[channelData objectForKey:@"mention_count"] intValue];
+            [c setMentionCount:mentionCount];
+            [associatedServer addMentionCount:mentionCount];
+
+            NSString *readMessageID = [channelData objectForKey:@"last_message_id"];
+            NSString *lastMessageID = [[c lastMessage] messageID];
+            if ([readMessageID isKindOfClass:[NSString class]] && [lastMessageID isKindOfClass:[NSString class]]) {
+                NSDecimalNumber *readSnowflake = [NSDecimalNumber decimalNumberWithString:readMessageID];
+                NSDecimalNumber *lastSnowflake = [NSDecimalNumber decimalNumberWithString:lastMessageID];
+                if ([lastSnowflake compare:readSnowflake] == NSOrderedDescending && ![c isEqual:selectedChannel]) {
                     [c setHasUnreadMessages:YES];
                     if (![associatedServer isEqual:[self myServerItem]]) {
                         [associatedServer setHasUnreadMessages:YES];
                     }
                 }
+            }
+            if (mentionCount > 0 && ![associatedServer isEqual:[self myServerItem]]) {
+                [associatedServer setHasUnreadMessages:YES];
             }
         }
     }
@@ -620,11 +899,27 @@ static DLController* sharedObject = nil;
 -(void)wsDidReceiveUserData:(NSDictionary *)data {
     [myUser release];
     myUser = [[DLUser alloc] initWithDict:data];
+    if (currentUserStatus) {
+        [myUser setStatus:currentUserStatus];
+    }
+    if (currentUserActivity) {
+        [myUser setActivityText:[self activityStringFromActivity:currentUserActivity]];
+        [myUser setActivityDictionary:currentUserActivity];
+    }
+    [self syncPresenceForKnownUsers];
 }
 
 -(void)wsDidReceiveUserSettingsData:(NSDictionary *)data {
     [myUserSettings release];
     myUserSettings = [[DLUserSettings alloc] initWithDict:data];
+    NSString *status = [self statusFromUserSettingsDictionary:data];
+    if (status) {
+        [currentUserStatus release];
+        currentUserStatus = [status retain];
+        if (myUser) {
+            [myUser setStatus:currentUserStatus];
+        }
+    }
 }
 
 -(void)wsDidLoadAllDataAfterReconnection:(BOOL)didReconnect {
@@ -647,7 +942,7 @@ static DLController* sharedObject = nil;
     [associatedServer setMentionCount:0];
     [c setMentionCount:0];
     [c setHasUnreadMessages:NO];
-    
+
     NSEnumerator *e = [[loadedChannels allKeys] objectEnumerator];
     NSString *channelID;
     BOOL hasUnreads = NO;
@@ -692,14 +987,50 @@ static DLController* sharedObject = nil;
 
 -(void)wsDidReceiveMemberData:(NSArray *)memberData forServerWithID:(NSString *)serverID {
     NSMutableArray *members = [[NSMutableArray alloc] init];
+    NSMutableArray *presences = [[NSMutableArray alloc] init];
     NSEnumerator *e = [memberData objectEnumerator];
     NSDictionary *memberDict;
     while (memberDict = [e nextObject]) {
         DLServerMember *m = [[DLServerMember alloc] initWithDict:memberDict];
+        NSDictionary *presence = [memberDict objectForKey:@"presence"];
+        if ([presence isKindOfClass:[NSDictionary class]]) {
+            NSString *status = [presence objectForKey:@"status"];
+            [[m user] setStatus:status];
+            [presences addObject:presence];
+        }
         [members addObject:m];
         [m release];
     }
-    [delegate members:members didUpdateForServer:[self loadedServerWithID:serverID]];
+    DLServer *server = [self loadedServerWithID:serverID];
+    [server addOrUpdateMembers:members];
+    e = [presences objectEnumerator];
+    NSDictionary *presence;
+    while (presence = [e nextObject]) {
+        [server updatePresenceWithDict:presence];
+        [self propagatePresenceDictionary:presence inServer:server];
+    }
+    [delegate members:members didUpdateForServer:server];
+    [presences release];
+}
+-(void)wsDidReceivePresenceData:(NSDictionary *)presenceData forServerWithID:(NSString *)serverID {
+    DLServer *server = [self loadedServerWithID:serverID];
+    [server updatePresenceWithDict:presenceData];
+    [self propagatePresenceDictionary:presenceData inServer:server];
+    if ([delegate respondsToSelector:@selector(presencesDidUpdateForServer:)]) {
+        [delegate presencesDidUpdateForServer:server];
+    }
+}
+-(void)wsDidUpdateCurrentUserActivity:(NSDictionary *)activity {
+    [currentUserActivity release];
+    currentUserActivity = nil;
+    if ([activity isKindOfClass:[NSDictionary class]]) {
+        currentUserActivity = [activity retain];
+    }
+    NSString *activityText = [self activityStringFromActivity:activity];
+    if (myUser && activityText) {
+        [myUser setActivityText:activityText];
+        [myUser setActivityDictionary:activity];
+    }
 }
 -(void)wsMessageWithID:(NSString *)messageID wasUpdatedWithData:(NSDictionary *)data {
     NSEnumerator *e = [loadedMessages objectEnumerator];

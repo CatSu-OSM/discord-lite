@@ -34,6 +34,7 @@ typedef enum {
     OPCodeGeneral = 0,
     OPCodeHeartbeat = 1,
     OPCodeIdentify = 2,
+    OPCodePresenceUpdate = 3,
     OPCodeVoiceStateUpdate = 4,
     OPCodeResume = 6,
     OPCodeQueryServerMembers = 8,
@@ -48,6 +49,8 @@ typedef enum {
 -(void)wsDidReceiveMessage:(DLMessage *)m;
 -(void)wsDidReceivePrivateChannelData:(NSArray *)data;
 -(void)wsDidReceiveServerData:(NSArray *)data;
+-(void)wsDidReceiveServerChannelData:(NSDictionary *)data;
+-(void)wsDidDeleteServerChannelWithID:(NSString *)channelID;
 -(void)wsDidReceiveReadStateData:(NSArray *)data;
 -(void)wsDidReceiveUserData:(NSDictionary *)data;
 -(void)wsDidReceiveUserSettingsData:(NSDictionary *)data;
@@ -56,6 +59,8 @@ typedef enum {
 -(void)wsUserWithID:(NSString *)userID didStartTypingInServerWithID:(NSString *)serverID inChannelWithID:(NSString *)channelID withMemberData:(NSDictionary *)memberData;
 -(void)wsUserWithID:(NSString *)userID didStartTypingInDirectMessageChannelWithID:(NSString *)channelID;
 -(void)wsDidReceiveMemberData:(NSArray *)memberData forServerWithID:(NSString *)serverID;
+-(void)wsDidReceivePresenceData:(NSDictionary *)presenceData forServerWithID:(NSString *)serverID;
+-(void)wsDidUpdateCurrentUserActivity:(NSDictionary *)activity;
 -(void)wsMessageWithID:(NSString *)messageID wasUpdatedWithData:(NSDictionary *)data;
 -(void)wsMessageWithIDWasDeleted:(NSString *)messageID;
 -(void)wsVoiceConnectionReadyForGuildID:(NSString *)guildID
@@ -112,6 +117,8 @@ typedef enum {
     NSString *voiceLastError;
     NSString *voiceConnectionStatus;
     NSUInteger voiceGeneration;
+    NSTimer *presenceUpdateTimer;
+    NSString *currentStatus;
 }
 
 +(DLWSController *)sharedInstance;
@@ -122,6 +129,7 @@ typedef enum {
 
 -(void)updateWSForDirectMessageChannel:(DLChannel *)c;
 -(void)updateWSForChannel:(DLChannel *)c inServer:(DLServer *)s;
+-(void)updateWSForChannel:(DLChannel *)c inServer:(DLServer *)s memberRangeStart:(NSInteger)start limit:(NSInteger)limit;
 -(void)joinVoiceChannel:(DLChannel *)c inServer:(DLServer *)s;
 -(void)leaveVoiceChannel;
 -(void)setVoiceSelfMuted:(BOOL)muted;
@@ -131,6 +139,9 @@ typedef enum {
 -(NSString *)voiceStatusText;
 
 -(void)queryServer:(DLServer *)s forMembersContainingUsername:(NSString *)username;
+
+-(void)setDiscordLitePresence;
+-(void)clearDiscordLitePresence;
 
 
 //For libcurl callback
