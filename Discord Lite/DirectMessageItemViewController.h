@@ -17,11 +17,18 @@
 -(void)dmChannelItemWasSelected:(DirectMessageItemViewController *)item;
 @end
 
-@interface DirectMessageItemViewController : ViewController <DLChannelDelegate, NSViewEventDelegate> {
+@interface DirectMessageItemViewController : ViewController <DLChannelDelegate, DLUserDelegate, NSViewEventDelegate> {
     NSColor *defaultTextColor;
     DLDirectMessageChannel *representedObject;
     IBOutlet NSImageView *avatarImageView;
+    NSImageView *avatarDecorationImageView;
     IBOutlet NSTextField *usernameTextField;
+    NSView_BGColor *nameplateView;
+    NSImageView *nameplateImageView;
+    NSTextField *nameplateTextField;
+    BOOL avatarLoadScheduled;
+    BOOL decorationLoadScheduled;
+    BOOL nameplateLoadScheduled;
     id<DMChannelItemDelegate> delegate;
     IBOutlet BadgeTextField *notificationBadgeLabel;
 }

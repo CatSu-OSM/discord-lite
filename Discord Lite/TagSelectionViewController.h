@@ -21,6 +21,9 @@
     
     IBOutlet NSImageView *avatarImageView;
     IBOutlet NSTextField *usernameTextField;
+    NSView_BGColor *nameplateView;
+    NSImageView *nameplateImageView;
+    NSTextField *nameplateTextField;
     DLUser *representedObject;
     id<TagSelectionItemDelegate> delegate;
     NSColor *unselectedBGColor;
