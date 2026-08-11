@@ -162,7 +162,7 @@
                                     <font key="font" metaFont="system"/>
                                 </buttonCell>
                                 <connections>
-                                    <action selector="showSettingsMenu:" target="-2" id="ZmV-b8-6Y7"/>
+                                    <action selector="showPreferencesWindow:" target="-2" id="ZmV-b8-6Y7"/>
                                 </connections>
                             </button>
                             <imageView horizontalHuggingPriority="251" verticalHuggingPriority="251" id="Nku-Ug-uCU">

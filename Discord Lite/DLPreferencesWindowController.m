@@ -7,6 +7,7 @@
 //
 
 #import "DLPreferencesWindowController.h"
+#import "DLController.h"
 
 @interface DLPreferencesWindowController ()
 
@@ -92,5 +93,10 @@
     
     [self.window close];
     
+}
+
+- (IBAction)logOutUser:(id)sender {
+    [self.window close];
+    [[DLController sharedInstance] logOutUser];
 }
 @end

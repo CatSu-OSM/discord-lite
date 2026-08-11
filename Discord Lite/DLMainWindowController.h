@@ -95,7 +95,7 @@ typedef enum {
     id<DLMainWindowDelegate> delegate;
 }
 - (IBAction)showFileOpenDialog:(id)sender;
-- (IBAction)showSettingsMenu:(id)sender;
+- (IBAction)showPreferencesWindow:(id)sender;
 - (IBAction)removeReferencedMessage:(id)sender;
 
 -(void)setDelegate:(id<DLMainWindowDelegate>)inDelegate;

@@ -329,10 +329,11 @@ const CGFloat MY_USER_AVATAR_RADIUS = 18.0f;
     }
 }
 
-- (IBAction)showSettingsMenu:(id)sender {
-    NSMenu *contextMenu = [[NSMenu alloc] init];
-    [contextMenu addItemWithTitle:@"Log Out" action:@selector(logOutUser) keyEquivalent:@""];
-    [NSMenu popUpContextMenu:contextMenu withEvent:[NSApp currentEvent] forView:(NSButton *)sender];
+- (IBAction)showPreferencesWindow:(id)sender {
+    id appDelegate = [NSApp delegate];
+    if ([appDelegate respondsToSelector:@selector(showPreferencesWindow:)]) {
+        [appDelegate showPreferencesWindow:sender];
+    }
 }
 
 -(void)showTagSelectionViewWithContent:(NSArray *)content {
