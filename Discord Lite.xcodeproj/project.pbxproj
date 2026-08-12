@@ -42,7 +42,6 @@
 		877F4DD228ECEF2F00183257 /* NSScroller+BGColor.m in Sources */ = {isa = PBXBuildFile; fileRef = 877F4DD128ECEF2F00183257 /* NSScroller+BGColor.m */; };
 		877F4DD928ED2DCB00183257 /* ServerStatusIndicatorView.m in Sources */ = {isa = PBXBuildFile; fileRef = 877F4DD828ED2DCB00183257 /* ServerStatusIndicatorView.m */; };
 		8782FE0E274C40B800ECA836 /* DLServerMember.m in Sources */ = {isa = PBXBuildFile; fileRef = 8782FE0D274C40B800ECA836 /* DLServerMember.m */; };
-		87877CDA273050A50062B796 /* ChannelItemViewController.xib in Resources */ = {isa = PBXBuildFile; fileRef = 87877CDC273050A50062B796 /* ChannelItemViewController.xib */; };
 		8788B61728EE2F0A00B338DF /* attach.png in Resources */ = {isa = PBXBuildFile; fileRef = 8788B61628EE2F0A00B338DF /* attach.png */; };
 		8788B61A28EE984B00B338DF /* DLServerFolder.m in Sources */ = {isa = PBXBuildFile; fileRef = 8788B61928EE984B00B338DF /* DLServerFolder.m */; };
 		878B0B2A2738FC6400547D61 /* discord_purple.png in Resources */ = {isa = PBXBuildFile; fileRef = 878B0B292738FC6400547D61 /* discord_purple.png */; };
@@ -70,7 +69,6 @@
 		87A6E2BE2735E0C2000DC06E /* RoundedTextFieldCell.m in Sources */ = {isa = PBXBuildFile; fileRef = 87A6E2BD2735E0C2000DC06E /* RoundedTextFieldCell.m */; };
 		87A6E2C12735E392000DC06E /* BadgeTextField.m in Sources */ = {isa = PBXBuildFile; fileRef = 87A6E2C02735E392000DC06E /* BadgeTextField.m */; };
 		87A6E2C4273612B5000DC06E /* BezierPathRoundedRect.m in Sources */ = {isa = PBXBuildFile; fileRef = 87A6E2C3273612B5000DC06E /* BezierPathRoundedRect.m */; };
-		87A7E7972A4935FB00CA0671 /* DirectMessageItemViewController.xib in Resources */ = {isa = PBXBuildFile; fileRef = 87A7E7992A4935FB00CA0671 /* DirectMessageItemViewController.xib */; };
 		87AD27D72741D3230092F428 /* HorizontalDynamicScrollView.m in Sources */ = {isa = PBXBuildFile; fileRef = 87AD27D62741D3230092F428 /* HorizontalDynamicScrollView.m */; };
 		87AD27DA2741EF9C0092F428 /* PendingAttachmentViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 87AD27D92741EF9C0092F428 /* PendingAttachmentViewController.m */; };
 		87AD27DD2741EFBC0092F428 /* PendingAttachmentViewController.xib in Resources */ = {isa = PBXBuildFile; fileRef = 87AD27DF2741EFBC0092F428 /* PendingAttachmentViewController.xib */; };
@@ -784,9 +782,7 @@
 				87DA40172739F4DB007E7455 /* AppIcon.icns in Resources */,
 				8706277E278EB2BB0056BD71 /* captcha_recaptcha.html in Resources */,
 				87C11C982728DB7B000046F2 /* Images.xcassets in Resources */,
-				87A7E7972A4935FB00CA0671 /* DirectMessageItemViewController.xib in Resources */,
 				87C0835E2728E28500C8F933 /* Discord-Logo.png in Resources */,
-				87877CDA273050A50062B796 /* ChannelItemViewController.xib in Resources */,
 				8788B61728EE2F0A00B338DF /* attach.png in Resources */,
 				87DA40092739DB28007E7455 /* mention_notification.mp3 in Resources */,
 				8791ACC32794AF0D005672AB /* DLTwoFactorWindowController.xib in Resources */,
