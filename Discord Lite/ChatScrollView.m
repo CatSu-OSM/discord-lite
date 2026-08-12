@@ -51,6 +51,17 @@
     }
     [self.documentView setNeedsDisplay:YES];
 }
+
+-(void)layoutContentAtBottom {
+    [self screenResize];
+    NSClipView *clipView = [self contentView];
+    CGFloat bottomOffset = NSHeight([[self documentView] frame]) - NSHeight([clipView bounds]);
+    if (bottomOffset < 0.0f) {
+        bottomOffset = 0.0f;
+    }
+    [clipView scrollToPoint:NSMakePoint(0.0f, bottomOffset)];
+    [self reflectScrolledClipView:clipView];
+}
 -(void)setContent:(NSArray *)inContent {
     NSEnumerator *e = [content objectEnumerator];
     ChatItemViewController *item;
@@ -64,7 +75,9 @@
         [self.documentView addSubview:item.view];
     }
     [self screenResize];
-    [self performSelector:@selector(screenResize) withObject:nil afterDelay:0.5];
+    // A new channel must remain anchored to its newest message after Cocoa
+    // completes its first text-layout pass.
+    [self performSelector:@selector(layoutContentAtBottom) withObject:nil afterDelay:0.0];
 }
 -(void)appendContent:(NSArray *)inContent {
     CGFloat height = [self.documentView frame].size.height;
