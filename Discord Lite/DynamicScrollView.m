@@ -35,19 +35,31 @@
     [content release];
     [inContent retain];
     content = inContent;
-    CGFloat height = 0;
+    CGFloat contentHeight = 0;
+    e = [content objectEnumerator];
+    while (item = [e nextObject]) {
+        contentHeight += item.view.frame.size.height;
+    }
+
+    // Keep the document at least as tall as the visible clip.  The previous
+    // implementation laid items out using a temporary height, then shrank the
+    // document, which could clip every server item out of view.
+    NSRect frame = [self.documentView frame];
+    frame.size.height = MAX(contentHeight, [[self contentView] bounds].size.height);
+    frame.size.width = [[self contentView] bounds].size.width;
+    [self.documentView setFrame:frame];
+
+    CGFloat offset = 0;
     e = [content objectEnumerator];
     while (item = [e nextObject]) {
         NSRect itemFrame = item.view.frame;
-        height += itemFrame.size.height;
-        itemFrame.origin.y = [self.documentView frame].size.height - height - 1;
+        offset += itemFrame.size.height;
+        itemFrame.origin.y = [self.documentView frame].size.height - offset;
         itemFrame.size.width = [self.documentView frame].size.width;
         item.view.frame = itemFrame;
         [self.documentView addSubview:item.view];
     }
-    NSRect frame = [self.documentView frame];
-    frame.size.height = height;
-    [self.documentView setFrame: frame];
+    [self.documentView setNeedsDisplay:YES];
 }
 
 -(NSArray *)content {
