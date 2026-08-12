@@ -56,7 +56,7 @@
     [self screenResize];
     NSView *documentView = [self documentView];
     NSRect documentBounds = [documentView bounds];
-    [documentView scrollRectToVisible:NSMakeRect(NSMinX(documentBounds), NSMaxY(documentBounds) - 1.0f, 1.0f, 1.0f)];
+    [documentView scrollRectToVisible:NSMakeRect(NSMinX(documentBounds), NSMinY(documentBounds), 1.0f, 1.0f)];
 }
 -(void)setContent:(NSArray *)inContent {
     NSEnumerator *e = [content objectEnumerator];
