@@ -36,7 +36,7 @@
         [filenameTextField setDrawsBackground:NO];
         [filenameTextField setEditable:NO];
         [filenameTextField setSelectable:NO];
-        [filenameTextField setLineBreakMode:NSLineBreakByTruncatingTail];
+        [[filenameTextField cell] setLineBreakMode:NSLineBreakByTruncatingTail];
         [filenameTextField setAlignment:NSCenterTextAlignment];
         [filenameTextField setFont:[NSFont systemFontOfSize:[NSFont systemFontSizeForControlSize:NSMiniControlSize]]];
         [filenameTextField setTextColor:[NSColor colorWithCalibratedRed:212.0/255.0 green:213.0/255.0 blue:214.0/255.0 alpha:1.0]];

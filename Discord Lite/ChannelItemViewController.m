@@ -24,7 +24,7 @@
         [childChannelLabel setDrawsBackground:NO];
         [childChannelLabel setEditable:NO];
         [childChannelLabel setSelectable:NO];
-        [childChannelLabel setLineBreakMode:NSLineBreakByTruncatingTail];
+        [[childChannelLabel cell] setLineBreakMode:NSLineBreakByTruncatingTail];
         [childChannelLabel setTextColor:[NSColor colorWithCalibratedRed:131.0/255.0 green:134.0/255.0 blue:139.0/255.0 alpha:1.0]];
         [defaultView addSubview:childChannelLabel];
         [childChannelLabel release];
@@ -62,7 +62,7 @@
         [parentChannelLabel setDrawsBackground:NO];
         [parentChannelLabel setEditable:NO];
         [parentChannelLabel setSelectable:NO];
-        [parentChannelLabel setLineBreakMode:NSLineBreakByTruncatingTail];
+        [[parentChannelLabel cell] setLineBreakMode:NSLineBreakByTruncatingTail];
         [parentChannelLabel setFont:[NSFont boldSystemFontOfSize:[NSFont systemFontSize]]];
         [parentChannelLabel setTextColor:[NSColor colorWithCalibratedRed:131.0/255.0 green:134.0/255.0 blue:139.0/255.0 alpha:1.0]];
         [headerView addSubview:parentChannelLabel];

@@ -34,7 +34,7 @@
         [usernameTextField setDrawsBackground:NO];
         [usernameTextField setEditable:NO];
         [usernameTextField setSelectable:NO];
-        [usernameTextField setLineBreakMode:NSLineBreakByTruncatingTail];
+        [[usernameTextField cell] setLineBreakMode:NSLineBreakByTruncatingTail];
         [usernameTextField setFont:[NSFont boldSystemFontOfSize:[NSFont systemFontSize]]];
         [usernameTextField setTextColor:[NSColor colorWithCalibratedRed:131.0/255.0 green:134.0/255.0 blue:139.0/255.0 alpha:1.0]];
         [view addSubview:usernameTextField];

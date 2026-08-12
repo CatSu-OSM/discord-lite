@@ -7,6 +7,7 @@
 //
 
 #import "DLMainWindowController.h"
+#import "FlippedClipView.h"
 
 @interface DLMainWindowController ()
 
@@ -23,7 +24,7 @@ static NSTextField *DLLabel(NSRect frame, NSString *text, NSFont *font, NSColor 
     [label setDrawsBackground:NO];
     [label setEditable:NO];
     [label setSelectable:NO];
-    [label setLineBreakMode:NSLineBreakByTruncatingTail];
+    [[label cell] setLineBreakMode:NSLineBreakByTruncatingTail];
     [label setStringValue:text];
     [label setFont:font];
     [label setTextColor:color];
@@ -43,7 +44,7 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
     [scrollView setVerticalScroller:verticalScroller];
     [verticalScroller release];
     if (scroller) {
-        *scroller = [scrollView verticalScroller];
+        *scroller = (NSScroller_BGColor *)[scrollView verticalScroller];
     }
 }
 
@@ -119,7 +120,7 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
         NSScroller_BGColor *entryScroller = [[NSScroller_BGColor alloc] init];
         [messageEntryScrollView setVerticalScroller:entryScroller];
         [entryScroller release];
-        messageEntryViewScroller = [messageEntryScrollView verticalScroller];
+        messageEntryViewScroller = (NSScroller_BGColor *)[messageEntryScrollView verticalScroller];
         messageEntryTextView = (PaddedTextView *)[messageEntryScrollView documentView];
         [messageEntryContainerView addSubview:messageEntryScrollView];
         attachButton = [[NSButton alloc] initWithFrame:NSMakeRect(12, 19, 18, 18)];
