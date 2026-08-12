@@ -48,6 +48,50 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
     }
 }
 
+- (void)layoutMainWindow:(NSNotification *)notification {
+    NSRect bounds = [[[self window] contentView] bounds];
+    CGFloat contentWidth = NSWidth(bounds);
+    CGFloat contentHeight = NSHeight(bounds);
+    CGFloat chatWidth = contentWidth - 338.0f;
+    CGFloat entryHeight = NSHeight([messageEntryContainerView frame]);
+    if (chatWidth < 409.0f) {
+        chatWidth = 409.0f;
+    }
+
+    [serversScrollView setFrame:NSMakeRect(0.0f, 0.0f, 80.0f, contentHeight)];
+    [userInfoView setFrame:NSMakeRect(80.0f, 0.0f, 258.0f, 56.0f)];
+    [channelViewHeader setFrame:NSMakeRect(80.0f, contentHeight - 42.0f, 258.0f, 42.0f)];
+    [channelsScrollView setFrame:NSMakeRect(80.0f, 56.0f, 258.0f, contentHeight - 98.0f)];
+    [chatViewHeader setFrame:NSMakeRect(338.0f, contentHeight - 42.0f, chatWidth, 42.0f)];
+    [messageEntryContainerView setFrame:NSMakeRect(338.0f, 0.0f, chatWidth, entryHeight)];
+    [chatScrollView setFrame:NSMakeRect(338.0f, entryHeight, chatWidth, contentHeight - 42.0f - entryHeight)];
+
+    NSRect entryFrame = [messageEntryScrollView frame];
+    entryFrame.size.width = chatWidth - 58.0f;
+    [messageEntryScrollView setFrame:entryFrame];
+    NSRect typingFrame = [typingStatusTextField frame];
+    typingFrame.size.width = chatWidth - 54.0f;
+    [typingStatusTextField setFrame:typingFrame];
+
+    if ([pendingAttachmentsScrollView superview]) {
+        NSRect pendingFrame = [pendingAttachmentsScrollView frame];
+        pendingFrame.size.width = chatWidth;
+        [pendingAttachmentsScrollView setFrame:pendingFrame];
+    }
+    if ([replyToView superview]) {
+        NSRect replyFrame = [replyToView frame];
+        replyFrame.size.width = chatWidth;
+        [replyToView setFrame:replyFrame];
+    }
+    if ([tagSelectionScrollView superview]) {
+        NSRect tagFrame = [tagSelectionScrollView frame];
+        tagFrame.origin.x = 338.0f;
+        tagFrame.origin.y = entryHeight;
+        tagFrame.size.width = chatWidth;
+        [tagSelectionScrollView setFrame:tagFrame];
+    }
+}
+
 - (id)initWithWindowNibName:(NSString *)windowNibName {
     NSWindow *window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 747, 517)
                                                    styleMask:(NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask | NSResizableWindowMask)
@@ -174,6 +218,7 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
         [tagSelectionScrollView setAutoresizingMask:NSViewWidthSizable | NSViewMaxYMargin];
         [replyToView setAutoresizingMask:NSViewWidthSizable | NSViewMaxYMargin];
         [contentView resizeSubviewsWithOldSize:NSMakeSize(747.0f, 517.0f)];
+        [self layoutMainWindow:nil];
         [self windowDidLoad];
     }
     return self;
@@ -239,6 +284,7 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
     currentMessageScrollHeight = messageEntryScrollView.frame.size.height;
     typingUsers = [[NSMutableArray alloc] init];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(updateTextViewSizing) name:NSWindowDidResizeNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(layoutMainWindow:) name:NSWindowDidResizeNotification object:[self window]];
 }
 
 -(void)setDelegate:(id<DLMainWindowDelegate>)inDelegate {
