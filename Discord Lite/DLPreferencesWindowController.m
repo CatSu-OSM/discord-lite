@@ -87,7 +87,7 @@ static NSTextField *DLPreferencesLabel(NSString *title, NSRect frame, NSFont *fo
     [applyButton setTarget:self];
     [applyButton setAction:@selector(applyChanges:)];
     [contentView addSubview:applyButton];
-    [contentView addSubview:DLPreferencesLabel(@"*HTTPS proxy must be set using System Preferences", NSMakeRect(182.0f, 49.0f, 400.0f, 17.0f), [NSFont smallSystemFontSize])];
+    [contentView addSubview:DLPreferencesLabel(@"*HTTPS proxy must be set using System Preferences", NSMakeRect(182.0f, 49.0f, 400.0f, 17.0f), [NSFont systemFontOfSize:[NSFont smallSystemFontSize]])];
 
     NSButton *logoutButton = [[NSButton alloc] initWithFrame:NSMakeRect(14.0f, 13.0f, 130.0f, 32.0f)];
     [logoutButton setTitle:@"Log Out"];

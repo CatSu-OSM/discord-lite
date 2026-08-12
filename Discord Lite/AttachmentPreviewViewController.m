@@ -44,7 +44,7 @@ static NSTextField *DLAttachmentPreviewLabel(NSString *title, NSRect frame, NSFo
         [[filenameTextField cell] setLineBreakMode:NSLineBreakByTruncatingTail];
         [boxView addSubview:filenameTextField];
 
-        sizeTextField = [DLAttachmentPreviewLabel(@"Size", NSMakeRect(56.0f, 17.0f, 107.0f, 14.0f), [NSFont smallSystemFontSize]] retain];
+        sizeTextField = [DLAttachmentPreviewLabel(@"Size", NSMakeRect(56.0f, 17.0f, 107.0f, 14.0f), [NSFont systemFontOfSize:[NSFont smallSystemFontSize]]) retain];
         [boxView addSubview:sizeTextField];
 
         downloadButton = [[NSButton alloc] initWithFrame:NSMakeRect(164.0f, 2.0f, 103.0f, 32.0f)];
