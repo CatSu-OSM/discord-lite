@@ -744,8 +744,10 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
 }
 
 -(void)initialDataWasReceived {
-    [NSThread detachNewThreadSelector:@selector(populateUserServers) toTarget:self withObject:nil];
-    [self loadMainContent];
+    // Server item views are Cocoa objects. Creating them off the main thread
+    // can leave an empty scroll view whose document height still changes.
+    [self performSelectorOnMainThread:@selector(populateUserServers) withObject:nil waitUntilDone:NO];
+    [self performSelectorOnMainThread:@selector(loadMainContent) withObject:nil waitUntilDone:NO];
 }
 
 -(void)requestDidFailWithError:(DLError *)e {
