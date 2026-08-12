@@ -23,7 +23,6 @@
 		873E712F2D0E7F3200427A00 /* NSTextField+DynamicHeight.m in Sources */ = {isa = PBXBuildFile; fileRef = 873E712E2D0E7F3200427A00 /* NSTextField+DynamicHeight.m */; };
 		873E71322D0E899E00427A00 /* PopoutView.m in Sources */ = {isa = PBXBuildFile; fileRef = 873E71312D0E899E00427A00 /* PopoutView.m */; };
 		8742C8682730EE47005359DC /* ChatItemViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 8742C8672730EE47005359DC /* ChatItemViewController.m */; };
-		8742C86B2730EE85005359DC /* ChatItemViewController.xib in Resources */ = {isa = PBXBuildFile; fileRef = 8742C86D2730EE85005359DC /* ChatItemViewController.xib */; };
 		87450D2C27370833007B4C08 /* DLUserSettings.m in Sources */ = {isa = PBXBuildFile; fileRef = 87450D2B27370833007B4C08 /* DLUserSettings.m */; };
 		8759138A274D9EBD003B7128 /* RegexKitLite.m in Sources */ = {isa = PBXBuildFile; fileRef = 87591388274D9EBD003B7128 /* RegexKitLite.m */; };
 		8759138F274DB5BD003B7128 /* TagSelectionViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 8759138E274DB5BD003B7128 /* TagSelectionViewController.m */; };
@@ -76,7 +75,6 @@
 		87BE741B278BEBA800F61BF7 /* NSTextView+Menu.m in Sources */ = {isa = PBXBuildFile; fileRef = 87BE741A278BEBA800F61BF7 /* NSTextView+Menu.m */; };
 		87C083532728DEA000C8F933 /* DLController.m in Sources */ = {isa = PBXBuildFile; fileRef = 87C083522728DEA000C8F933 /* DLController.m */; };
 		87C083572728E1A800C8F933 /* DLLoginWindowController.m in Sources */ = {isa = PBXBuildFile; fileRef = 87C083552728E1A800C8F933 /* DLLoginWindowController.m */; };
-		87C083592728E1F000C8F933 /* DLLoginWindowController.xib in Resources */ = {isa = PBXBuildFile; fileRef = 87C0835B2728E1F000C8F933 /* DLLoginWindowController.xib */; };
 		87C0835E2728E28500C8F933 /* Discord-Logo.png in Resources */ = {isa = PBXBuildFile; fileRef = 87C0835D2728E28500C8F933 /* Discord-Logo.png */; };
 		87C083632728E94A00C8F933 /* AsyncHTTPRequest.m in Sources */ = {isa = PBXBuildFile; fileRef = 87C083622728E94A00C8F933 /* AsyncHTTPRequest.m */; };
 		87C083662728E9FB00C8F933 /* AsyncHTTPPostRequest.m in Sources */ = {isa = PBXBuildFile; fileRef = 87C083652728E9FB00C8F933 /* AsyncHTTPPostRequest.m */; };
@@ -780,10 +778,8 @@
 				879E31E12743502A00A21FF5 /* settings.png in Resources */,
 				8725137A28EF98AD00BD5170 /* delete.png in Resources */,
 				87062772278E97AA0056BD71 /* captcha_hcaptcha.html in Resources */,
-				8742C86B2730EE85005359DC /* ChatItemViewController.xib in Resources */,
 				87A38DE927338E48002385EE /* f5k.png in Resources */,
 				878B0B2E2738FDCC00547D61 /* discord_group.png in Resources */,
-				87C083592728E1F000C8F933 /* DLLoginWindowController.xib in Resources */,
 				878B0B2C2738FD4A00547D61 /* discord_placeholder.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

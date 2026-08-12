@@ -20,6 +20,41 @@ const NSInteger ATTACHMENT_SPACING = 15;
     return 13.0f;
 }
 
+-(id)init {
+    self = [super init];
+    if (!self) {
+        return nil;
+    }
+    view = [[NSView_BGColor alloc] initWithFrame:NSMakeRect(0.0f, 0.0f, 411.0f, 69.0f)];
+    [view setAutoresizingMask:NSViewWidthSizable | NSViewMinYMargin];
+    insetView = [[NSView_BGColor alloc] initWithFrame:NSMakeRect(0.0f, 6.0f, 411.0f, 63.0f)];
+    [insetView setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
+    [view addSubview:insetView];
+    avatarImageView = [[NSImageView alloc] initWithFrame:NSMakeRect(14.0f, 5.0f, 48.0f, 48.0f)];
+    [avatarImageView setImageScaling:NSImageScaleProportionallyDown]; [insetView addSubview:avatarImageView];
+    usernameTextField = [[NSTextField alloc] initWithFrame:NSMakeRect(74.0f, 40.0f, 169.0f, 17.0f)];
+    [usernameTextField setEditable:NO]; [usernameTextField setBezeled:NO]; [usernameTextField setDrawsBackground:NO]; [usernameTextField setFont:[NSFont boldSystemFontOfSize:[NSFont systemFontSize]]]; [usernameTextField setTextColor:[NSColor whiteColor]];
+    [insetView addSubview:usernameTextField];
+    timestampTextField = [[NSTextField alloc] initWithFrame:NSMakeRect(247.0f, 43.0f, 150.0f, 14.0f)];
+    [timestampTextField setEditable:NO]; [timestampTextField setBezeled:NO]; [timestampTextField setDrawsBackground:NO]; [timestampTextField setAlignment:NSRightTextAlignment]; [timestampTextField setFont:[NSFont systemFontOfSize:[NSFont smallSystemFontSize]]];
+    [insetView addSubview:timestampTextField];
+    chatTextView = [[NSTextView_Menu alloc] initWithFrame:NSMakeRect(70.0f, 14.0f, 325.0f, 18.0f)];
+    [chatTextView setAutoresizingMask:NSViewWidthSizable | NSViewMaxYMargin]; [insetView addSubview:chatTextView];
+    editedInfoLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(347.0f, 0.0f, 50.0f, 11.0f)];
+    [editedInfoLabel setStringValue:@"(edited)"]; [editedInfoLabel setEditable:NO]; [editedInfoLabel setBezeled:NO]; [editedInfoLabel setDrawsBackground:NO]; [editedInfoLabel setAlignment:NSRightTextAlignment]; [editedInfoLabel setFont:[NSFont systemFontOfSize:[NSFont systemFontSize]-2.0f]]; [editedInfoLabel setHidden:YES]; [insetView addSubview:editedInfoLabel];
+    editDismissInfoLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(68.0f, 0.0f, 215.0f, 11.0f)];
+    [editDismissInfoLabel setStringValue:@"Escape to cancel, return to save"]; [editDismissInfoLabel setEditable:NO]; [editDismissInfoLabel setBezeled:NO]; [editDismissInfoLabel setDrawsBackground:NO]; [editDismissInfoLabel setFont:[NSFont systemFontOfSize:[NSFont systemFontSize]-2.0f]]; [editDismissInfoLabel setHidden:YES]; [insetView addSubview:editDismissInfoLabel];
+    referencedMessageView = [[NSView alloc] initWithFrame:NSMakeRect(0.0f, 0.0f, 333.0f, 37.0f)];
+    referencedMessageAvatarImageView = [[NSImageView alloc] initWithFrame:NSMakeRect(75.0f, 5.0f, 26.0f, 26.0f)]; [referencedMessageAvatarImageView setImageScaling:NSImageScaleProportionallyDown]; [referencedMessageView addSubview:referencedMessageAvatarImageView];
+    referencedMessageTextField = [[NSTextField alloc] initWithFrame:NSMakeRect(107.0f, 10.0f, 219.0f, 17.0f)]; [referencedMessageTextField setEditable:NO]; [referencedMessageTextField setBezeled:NO]; [referencedMessageTextField setDrawsBackground:NO]; [referencedMessageTextField setTextColor:[NSColor whiteColor]]; [referencedMessageView addSubview:referencedMessageTextField];
+    [self awakeFromNib];
+    return self;
+}
+
+-(id)initWithNibNamed:(NSString *)inNibName bundle:(NSBundle *)bundle {
+    return [self init];
+}
+
 -(void)awakeFromNib {
     baseViewHeight = view.frame.size.height;
     //[insetView setBackgroundColor:[NSColor redColor]];
@@ -257,6 +292,7 @@ const NSInteger ATTACHMENT_SPACING = 15;
     [insetView setDelegate:nil];
     [attachmentViews release];
     [representedObject release];
+    [referencedMessageView release];
     [self.view release];
     [super dealloc];
 }
