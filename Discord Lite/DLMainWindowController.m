@@ -107,6 +107,18 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
     [self performSelector:@selector(layoutMainWindow:) withObject:nil afterDelay:0.0];
 }
 
+- (void)scrollChatToLatestMessage {
+    NSClipView *clipView = [chatScrollView contentView];
+    CGFloat documentHeight = NSHeight([[chatScrollView documentView] frame]);
+    CGFloat visibleHeight = NSHeight([clipView bounds]);
+    CGFloat bottomOffset = documentHeight - visibleHeight;
+    if (bottomOffset < 0.0f) {
+        bottomOffset = 0.0f;
+    }
+    [clipView scrollToPoint:NSMakePoint(0.0f, bottomOffset)];
+    [chatScrollView reflectScrolledClipView:clipView];
+}
+
 - (id)initWithWindowNibName:(NSString *)windowNibName {
     NSWindow *window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 747, 517)
                                                    styleMask:(NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask | NSResizableWindowMask)
@@ -873,11 +885,8 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
         [chatHeaderLabel setStringValue:[c name]];
         [chatHeaderImage setImage:[[[NSImage alloc] initWithData:[c subImageData]] autorelease]];
         [chatScrollView setContent:views];
-        // Scroll coordinates are relative to the chat document, not the main
-        // window. Using the pane's x-position (338) briefly shifted chat under
-        // the server and channel columns whenever a channel was selected.
-        [[chatScrollView contentView] scrollToPoint:NSMakePoint(0.0f, 0.0f)];
-        [chatScrollView reflectScrolledClipView: [chatScrollView contentView]];
+        [self scrollChatToLatestMessage];
+        [self performSelector:@selector(scrollChatToLatestMessage) withObject:nil afterDelay:0.6];
         if ([c hasUnreadMessages] || [c mentionCount] > 0) {
             [[DLController sharedInstance] acknowledgeMessage:[c lastMessage]];
         }
