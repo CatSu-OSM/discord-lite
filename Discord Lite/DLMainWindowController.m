@@ -146,8 +146,12 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
         [userInfoView addSubview:myDiscTextField];
         NSButton *settingsButton = [[NSButton alloc] initWithFrame:NSMakeRect(220, 19, 18, 18)];
         [settingsButton setBezelStyle:NSShadowlessSquareBezelStyle];
+        [settingsButton setBordered:NO];
         [settingsButton setImage:[NSImage imageNamed:@"settings"]];
         [settingsButton setImagePosition:NSImageOnly];
+        [settingsButton setImageScaling:NSImageScaleProportionallyDown];
+        [[settingsButton cell] setHighlightsBy:NSNoCellMask];
+        [[settingsButton cell] setShowsStateBy:NSNoCellMask];
         [settingsButton setTarget:self];
         [settingsButton setAction:@selector(showPreferencesWindow:)];
         [userInfoView addSubview:settingsButton];
@@ -185,9 +189,13 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
         messageEntryTextView = (PaddedTextView *)[messageEntryScrollView documentView];
         [messageEntryContainerView addSubview:messageEntryScrollView];
         attachButton = [[NSButton alloc] initWithFrame:NSMakeRect(12, 19, 18, 18)];
-        [attachButton setBezelStyle:NSRegularSquareBezelStyle];
+        [attachButton setBezelStyle:NSShadowlessSquareBezelStyle];
+        [attachButton setBordered:NO];
         [attachButton setImage:[NSImage imageNamed:@"attach"]];
         [attachButton setImagePosition:NSImageOnly];
+        [attachButton setImageScaling:NSImageScaleProportionallyDown];
+        [[attachButton cell] setHighlightsBy:NSNoCellMask];
+        [[attachButton cell] setShowsStateBy:NSNoCellMask];
         [attachButton setEnabled:NO];
         [attachButton setTarget:self];
         [attachButton setAction:@selector(showFileOpenDialog:)];

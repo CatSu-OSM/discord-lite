@@ -37,7 +37,7 @@ const NSInteger ATTACHMENT_SPACING = 15;
     [usernameTextField setAutoresizingMask:NSViewWidthSizable | NSViewMinYMargin];
     [insetView addSubview:usernameTextField];
     timestampTextField = [[NSTextField alloc] initWithFrame:NSMakeRect(247.0f, 43.0f, 150.0f, 14.0f)];
-    [timestampTextField setEditable:NO]; [timestampTextField setBezeled:NO]; [timestampTextField setDrawsBackground:NO]; [timestampTextField setAlignment:NSRightTextAlignment]; [timestampTextField setFont:[NSFont systemFontOfSize:[NSFont smallSystemFontSize]]];
+    [timestampTextField setEditable:NO]; [timestampTextField setBezeled:NO]; [timestampTextField setDrawsBackground:NO]; [timestampTextField setAlignment:NSRightTextAlignment]; [timestampTextField setFont:[NSFont systemFontOfSize:[NSFont smallSystemFontSize]]]; [timestampTextField setTextColor:[NSColor colorWithCalibratedRed:131.0f/255.0f green:134.0f/255.0f blue:139.0f/255.0f alpha:1.0f]];
     [timestampTextField setAutoresizingMask:NSViewMinXMargin | NSViewMinYMargin];
     [insetView addSubview:timestampTextField];
     chatTextView = [[NSTextView_Menu alloc] initWithFrame:NSMakeRect(70.0f, 14.0f, 325.0f, 18.0f)];
