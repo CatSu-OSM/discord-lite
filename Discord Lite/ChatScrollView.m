@@ -27,12 +27,6 @@
     return content;
 }
 -(void)screenResize {
-    // documentVisibleRect is expressed in document coordinates, unlike the
-    // flipped clip view. Use it to tell whether the visual bottom is visible
-    // before asynchronous image/text layout changes the document height.
-    NSRect oldDocumentBounds = [[self documentView] bounds];
-    NSRect visibleDocumentRect = [self documentVisibleRect];
-    BOOL wasAtVisualBottom = (NSMinY(visibleDocumentRect) <= NSMinY(oldDocumentBounds) + 1.0f);
     CGFloat currentHeight = 0;
     NSEnumerator *e = [content objectEnumerator];
     ChatItemViewController *item;
@@ -56,7 +50,7 @@
         currentHeight += [item expectedHeight];
     }
     [self.documentView setNeedsDisplay:YES];
-    if (wasAtVisualBottom) {
+    if (keepsNewestMessageVisible) {
         NSRect documentBounds = [[self documentView] bounds];
         [[self documentView] scrollRectToVisible:NSMakeRect(NSMinX(documentBounds), NSMinY(documentBounds), 1.0f, 1.0f)];
     }
@@ -76,6 +70,7 @@
     }
     [content release];
     content = [[NSMutableArray alloc] initWithArray:inContent];
+    keepsNewestMessageVisible = YES;
     e = [content objectEnumerator];
     while (item = [e nextObject]) {
         [self.documentView addSubview:item.view];
@@ -84,6 +79,11 @@
     // A new channel must remain anchored to its newest message after Cocoa
     // completes its first text-layout pass.
     [self performSelector:@selector(layoutContentAtBottom) withObject:nil afterDelay:0.0];
+}
+
+-(void)scrollWheel:(NSEvent *)theEvent {
+    keepsNewestMessageVisible = NO;
+    [super scrollWheel:theEvent];
 }
 -(void)appendContent:(NSArray *)inContent {
     CGFloat height = [self.documentView frame].size.height;

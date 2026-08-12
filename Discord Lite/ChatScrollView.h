@@ -18,6 +18,7 @@
 @interface ChatScrollView : NSScrollView {
     NSMutableArray *content;
     id<ChatScrollViewDelegate> delegate;
+    BOOL keepsNewestMessageVisible;
 }
 
 -(NSArray *)content;
