@@ -48,7 +48,6 @@
 		8791ACC12794AE50005672AB /* DLTwoFactorWindowController.m in Sources */ = {isa = PBXBuildFile; fileRef = 8791ACBF2794AE50005672AB /* DLTwoFactorWindowController.m */; };
 		8791ACC82794B7C9005672AB /* TwoFactorEntryFormatter.m in Sources */ = {isa = PBXBuildFile; fileRef = 8791ACC72794B7C9005672AB /* TwoFactorEntryFormatter.m */; };
 		87994C6A2753450300A27326 /* DLTextParser.m in Sources */ = {isa = PBXBuildFile; fileRef = 87994C692753450300A27326 /* DLTextParser.m */; };
-		879E31C62743070400A21FF5 /* AttachmentPreviewViewController.xib in Resources */ = {isa = PBXBuildFile; fileRef = 879E31C82743070400A21FF5 /* AttachmentPreviewViewController.xib */; };
 		879E31E12743502A00A21FF5 /* settings.png in Resources */ = {isa = PBXBuildFile; fileRef = 879E31E02743502A00A21FF5 /* settings.png */; };
 		87A32B26273F149A003D64BD /* NSView+Events.m in Sources */ = {isa = PBXBuildFile; fileRef = 87A32B25273F149A003D64BD /* NSView+Events.m */; };
 		87A32B2D273F1A28003D64BD /* DLAttachmentWindowController.m in Sources */ = {isa = PBXBuildFile; fileRef = 87A32B2B273F1A28003D64BD /* DLAttachmentWindowController.m */; };
@@ -104,7 +103,6 @@
 		87E8A6F728B6A1A400BCBC93 /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 87E8A6F628B6A1A400BCBC93 /* WebKit.framework */; };
 		87E8A6F828B6A21D00BCBC93 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 87739809288A42A300548F3F /* Foundation.framework */; };
 		87F066E028B553D000FE92A2 /* DLPreferencesWindowController.m in Sources */ = {isa = PBXBuildFile; fileRef = 87F066DE28B553D000FE92A2 /* DLPreferencesWindowController.m */; };
-		87F066E228B553DC00FE92A2 /* DLPreferencesWindowController.xib in Resources */ = {isa = PBXBuildFile; fileRef = 87F066E428B553DC00FE92A2 /* DLPreferencesWindowController.xib */; };
 		87F066E728B5854600FE92A2 /* NSData+Compress.m in Sources */ = {isa = PBXBuildFile; fileRef = 87F066E628B5854600FE92A2 /* NSData+Compress.m */; };
 		87F066E928B585F300FE92A2 /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 87F066E828B585F300FE92A2 /* libz.dylib */; };
 		87F17B26288A47D500CF4F5D /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 87739807288A429B00548F3F /* Cocoa.framework */; settings = {ATTRIBUTES = (Required, ); }; };
@@ -782,8 +780,6 @@
 				879E31E12743502A00A21FF5 /* settings.png in Resources */,
 				8725137A28EF98AD00BD5170 /* delete.png in Resources */,
 				87062772278E97AA0056BD71 /* captcha_hcaptcha.html in Resources */,
-				879E31C62743070400A21FF5 /* AttachmentPreviewViewController.xib in Resources */,
-				87F066E228B553DC00FE92A2 /* DLPreferencesWindowController.xib in Resources */,
 				8742C86B2730EE85005359DC /* ChatItemViewController.xib in Resources */,
 				87A38DE927338E48002385EE /* f5k.png in Resources */,
 				878B0B2E2738FDCC00547D61 /* discord_group.png in Resources */,
