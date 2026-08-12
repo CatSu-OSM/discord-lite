@@ -31,6 +31,7 @@ const NSInteger ATTACHMENT_SPACING = 15;
     [insetView setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
     [view addSubview:insetView];
     avatarImageView = [[NSImageView alloc] initWithFrame:NSMakeRect(14.0f, 5.0f, 48.0f, 48.0f)];
+    [avatarImageView setAutoresizingMask:NSViewMaxXMargin | NSViewMinYMargin];
     [avatarImageView setImageScaling:NSImageScaleProportionallyDown]; [insetView addSubview:avatarImageView];
     usernameTextField = [[NSTextField alloc] initWithFrame:NSMakeRect(74.0f, 40.0f, 169.0f, 17.0f)];
     [usernameTextField setEditable:NO]; [usernameTextField setBezeled:NO]; [usernameTextField setDrawsBackground:NO]; [usernameTextField setFont:[NSFont boldSystemFontOfSize:[NSFont systemFontSize]]]; [usernameTextField setTextColor:[NSColor whiteColor]];
