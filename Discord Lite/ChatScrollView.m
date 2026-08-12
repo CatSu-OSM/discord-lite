@@ -54,13 +54,9 @@
 
 -(void)layoutContentAtBottom {
     [self screenResize];
-    NSClipView *clipView = [self contentView];
-    CGFloat bottomOffset = NSHeight([[self documentView] frame]) - NSHeight([clipView bounds]);
-    if (bottomOffset < 0.0f) {
-        bottomOffset = 0.0f;
-    }
-    [clipView scrollToPoint:NSMakePoint(0.0f, bottomOffset)];
-    [self reflectScrolledClipView:clipView];
+    NSView *documentView = [self documentView];
+    NSRect documentBounds = [documentView bounds];
+    [documentView scrollRectToVisible:NSMakeRect(NSMinX(documentBounds), NSMaxY(documentBounds) - 1.0f, 1.0f, 1.0f)];
 }
 -(void)setContent:(NSArray *)inContent {
     NSEnumerator *e = [content objectEnumerator];

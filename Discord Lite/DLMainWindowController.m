@@ -108,15 +108,11 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
 }
 
 - (void)scrollChatToLatestMessage {
-    NSClipView *clipView = [chatScrollView contentView];
-    CGFloat documentHeight = NSHeight([[chatScrollView documentView] frame]);
-    CGFloat visibleHeight = NSHeight([clipView bounds]);
-    CGFloat bottomOffset = documentHeight - visibleHeight;
-    if (bottomOffset < 0.0f) {
-        bottomOffset = 0.0f;
-    }
-    [clipView scrollToPoint:NSMakePoint(0.0f, bottomOffset)];
-    [chatScrollView reflectScrolledClipView:clipView];
+    NSView *documentView = [chatScrollView documentView];
+    NSRect documentBounds = [documentView bounds];
+    // The chat uses a flipped clip view, so raw clip coordinates do not map
+    // reliably to the visual bottom. Let AppKit convert the document edge.
+    [documentView scrollRectToVisible:NSMakeRect(NSMinX(documentBounds), NSMaxY(documentBounds) - 1.0f, 1.0f, 1.0f)];
 }
 
 - (id)initWithWindowNibName:(NSString *)windowNibName {
