@@ -28,7 +28,6 @@
 		87450D2C27370833007B4C08 /* DLUserSettings.m in Sources */ = {isa = PBXBuildFile; fileRef = 87450D2B27370833007B4C08 /* DLUserSettings.m */; };
 		8759138A274D9EBD003B7128 /* RegexKitLite.m in Sources */ = {isa = PBXBuildFile; fileRef = 87591388274D9EBD003B7128 /* RegexKitLite.m */; };
 		8759138F274DB5BD003B7128 /* TagSelectionViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 8759138E274DB5BD003B7128 /* TagSelectionViewController.m */; };
-		87591392274DB5D7003B7128 /* TagSelectionViewController.xib in Resources */ = {isa = PBXBuildFile; fileRef = 87591394274DB5D7003B7128 /* TagSelectionViewController.xib */; };
 		876DBDF227291681008682BC /* CJSONDeserializer.m in Sources */ = {isa = PBXBuildFile; fileRef = 876DBDEC27291681008682BC /* CJSONDeserializer.m */; };
 		876DBDF327291681008682BC /* CJSONScanner.m in Sources */ = {isa = PBXBuildFile; fileRef = 876DBDEE27291681008682BC /* CJSONScanner.m */; };
 		876DBDF427291681008682BC /* CJSONSerializer.m in Sources */ = {isa = PBXBuildFile; fileRef = 876DBDF027291681008682BC /* CJSONSerializer.m */; };
@@ -88,7 +87,6 @@
 		87C11C942728DB7B000046F2 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 87C11C932728DB7B000046F2 /* AppDelegate.m */; };
 		87C11C962728DB7B000046F2 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 87C11C952728DB7B000046F2 /* main.m */; };
 		87C11C982728DB7B000046F2 /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 87C11C972728DB7B000046F2 /* Images.xcassets */; };
-		87C11C9B2728DB7B000046F2 /* MainMenu.xib in Resources */ = {isa = PBXBuildFile; fileRef = 87C11C992728DB7B000046F2 /* MainMenu.xib */; };
 		87C11CA72728DB7B000046F2 /* Discord_LiteTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 87C11CA62728DB7B000046F2 /* Discord_LiteTests.m */; };
 		87C2CF8C272F438600F10466 /* ViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 87C2CF8B272F438600F10466 /* ViewController.m */; };
 		87C2CF92272F77AD00F10466 /* NSView+BGColor.m in Sources */ = {isa = PBXBuildFile; fileRef = 87C2CF91272F77AD00F10466 /* NSView+BGColor.m */; };
@@ -783,11 +781,9 @@
 				87DA40092739DB28007E7455 /* mention_notification.mp3 in Resources */,
 				878B0B2A2738FC6400547D61 /* discord_purple.png in Resources */,
 				87BE740D278B811A00F61BF7 /* reply_curve.png in Resources */,
-				87C11C9B2728DB7B000046F2 /* MainMenu.xib in Resources */,
 				879E31E12743502A00A21FF5 /* settings.png in Resources */,
 				8725137A28EF98AD00BD5170 /* delete.png in Resources */,
 				87062772278E97AA0056BD71 /* captcha_hcaptcha.html in Resources */,
-				87591392274DB5D7003B7128 /* TagSelectionViewController.xib in Resources */,
 				87062778278E9CFF0056BD71 /* DLCaptchaWindowController.xib in Resources */,
 				87A32B2F273F1ADC003D64BD /* DLAttachmentWindowController.xib in Resources */,
 				879E31C62743070400A21FF5 /* AttachmentPreviewViewController.xib in Resources */,

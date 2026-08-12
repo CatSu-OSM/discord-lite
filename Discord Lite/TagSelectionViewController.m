@@ -21,7 +21,33 @@
 
 -(id)init {
     self = [super init];
+    if (self) {
+        isSelected = NO;
+
+        view = [[NSView_BGColor alloc] initWithFrame:NSMakeRect(0.0f, -1.0f, 367.0f, 25.0f)];
+        [view setAutoresizingMask:NSViewWidthSizable | NSViewMinYMargin];
+        [view setDelegate:self];
+
+        avatarImageView = [[NSImageView alloc] initWithFrame:NSMakeRect(4.0f, 4.0f, 17.0f, 17.0f)];
+        [avatarImageView setImageScaling:NSImageScaleProportionallyDown];
+        [avatarImageView setAutoresizingMask:NSViewMaxXMargin | NSViewMinYMargin];
+        [view addSubview:avatarImageView];
+
+        usernameTextField = [[NSTextField alloc] initWithFrame:NSMakeRect(28.0f, 4.0f, 336.0f, 17.0f)];
+        [usernameTextField setEditable:NO];
+        [usernameTextField setBezeled:NO];
+        [usernameTextField setDrawsBackground:NO];
+        [usernameTextField setFont:[NSFont systemFontOfSize:[NSFont systemFontSize]]];
+        [usernameTextField setTextColor:[NSColor colorWithCalibratedRed:212.0f/255.0f green:213.0f/255.0f blue:214.0f/255.0f alpha:1.0f]];
+        [[usernameTextField cell] setLineBreakMode:NSLineBreakByTruncatingTail];
+        [usernameTextField setAutoresizingMask:NSViewWidthSizable | NSViewMinYMargin];
+        [view addSubview:usernameTextField];
+    }
     return self;
+}
+
+-(id)initWithNibNamed:(NSString *)inNibName bundle:(NSBundle *)bundle {
+    return [self init];
 }
 
 -(void)setRepresentedObject:(DLUser *)u {

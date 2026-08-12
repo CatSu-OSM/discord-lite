@@ -14,7 +14,35 @@
 
 @implementation AppDelegate
 
+- (void)buildMainMenu {
+    NSMenu *mainMenu = [[NSMenu alloc] initWithTitle:@""];
+    NSMenuItem *applicationItem = [[NSMenuItem alloc] initWithTitle:@"Discord Lite" action:nil keyEquivalent:@""];
+    NSMenu *applicationMenu = [[NSMenu alloc] initWithTitle:@"Discord Lite"];
+    [applicationMenu addItemWithTitle:@"Preferences..." action:@selector(showPreferencesWindow:) keyEquivalent:@","];
+    [applicationMenu addItem:[NSMenuItem separatorItem]];
+    [applicationMenu addItemWithTitle:@"Quit Discord Lite" action:@selector(terminate:) keyEquivalent:@"q"];
+    [applicationItem setSubmenu:applicationMenu];
+    [mainMenu addItem:applicationItem];
+
+    NSMenuItem *editItem = [[NSMenuItem alloc] initWithTitle:@"Edit" action:nil keyEquivalent:@""];
+    NSMenu *editMenu = [[NSMenu alloc] initWithTitle:@"Edit"];
+    [editMenu addItemWithTitle:@"Cut" action:@selector(cut:) keyEquivalent:@"x"];
+    [editMenu addItemWithTitle:@"Copy" action:@selector(copy:) keyEquivalent:@"c"];
+    [editMenu addItemWithTitle:@"Paste" action:@selector(paste:) keyEquivalent:@"v"];
+    [editMenu addItemWithTitle:@"Select All" action:@selector(selectAll:) keyEquivalent:@"a"];
+    [editItem setSubmenu:editMenu];
+    [mainMenu addItem:editItem];
+
+    [NSApp setMainMenu:mainMenu];
+    [editMenu release];
+    [editItem release];
+    [applicationMenu release];
+    [applicationItem release];
+    [mainMenu release];
+}
+
 - (void)applicationDidFinishLaunching:(NSNotification *)aNotification {
+    [self buildMainMenu];
     
     //[NSURLProtocol registerClass:[DLURLProtocol class]];
     
