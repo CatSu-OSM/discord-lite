@@ -19,6 +19,10 @@
     NSMutableArray *content;
     id<ChatScrollViewDelegate> delegate;
     BOOL keepsNewestMessageVisible;
+    NSTimer *latestMessageScrollTimer;
+    NSTimeInterval latestMessageScrollStartTime;
+    CGFloat latestMessageScrollStartY;
+    CGFloat latestMessageScrollTargetY;
 }
 
 -(NSArray *)content;
@@ -29,6 +33,7 @@
 -(void)prependViewController:(ChatItemViewController *)vc;
 -(void)removeViewController:(ChatItemViewController *)vc;
 -(void)screenResize;
+-(void)scrollToLatestMessageAnimated;
 -(void)endAllChatContentEditing;
 
 @end

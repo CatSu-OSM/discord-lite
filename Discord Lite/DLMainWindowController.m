@@ -903,6 +903,9 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
             [view setIsMyContent:YES];
         }
         [chatScrollView prependViewController:view];
+        if ([[m author] isEqual:[[DLController sharedInstance] myUser]]) {
+            [chatScrollView scrollToLatestMessageAnimated];
+        }
         [[m author] setTyping:NO];
         [self userDidStopTyping:[m author]];
         if ([self.window isKeyWindow]) {

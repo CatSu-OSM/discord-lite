@@ -62,6 +62,44 @@
     NSRect documentBounds = [documentView bounds];
     [documentView scrollRectToVisible:NSMakeRect(NSMinX(documentBounds), NSMinY(documentBounds), 1.0f, 1.0f)];
 }
+
+-(void)scrollToLatestMessageStep:(NSTimer *)timer {
+    NSTimeInterval elapsed = [[NSDate date] timeIntervalSinceReferenceDate] - latestMessageScrollStartTime;
+    CGFloat progress = elapsed / 0.18f;
+    if (progress > 1.0f) {
+        progress = 1.0f;
+    }
+    // Fast ease-out: it starts moving immediately and settles without a snap.
+    CGFloat remaining = 1.0f - progress;
+    CGFloat easedProgress = 1.0f - (remaining * remaining * remaining);
+    CGFloat y = latestMessageScrollStartY + ((latestMessageScrollTargetY - latestMessageScrollStartY) * easedProgress);
+    NSView *documentView = [self documentView];
+    NSRect documentBounds = [documentView bounds];
+    [documentView scrollRectToVisible:NSMakeRect(NSMinX(documentBounds), y, 1.0f, 1.0f)];
+    if (progress >= 1.0f) {
+        [latestMessageScrollTimer invalidate];
+        latestMessageScrollTimer = nil;
+    }
+}
+
+-(void)scrollToLatestMessageAnimated {
+    keepsNewestMessageVisible = YES;
+    [self screenResize];
+    [latestMessageScrollTimer invalidate];
+    latestMessageScrollTimer = nil;
+    latestMessageScrollStartY = NSMinY([self documentVisibleRect]);
+    latestMessageScrollTargetY = NSMinY([[self documentView] bounds]);
+    CGFloat distance = latestMessageScrollStartY - latestMessageScrollTargetY;
+    if (distance < 0.0f) {
+        distance = -distance;
+    }
+    if (distance < 1.0f) {
+        [self layoutContentAtBottom];
+        return;
+    }
+    latestMessageScrollStartTime = [[NSDate date] timeIntervalSinceReferenceDate];
+    latestMessageScrollTimer = [NSTimer scheduledTimerWithTimeInterval:0.02f target:self selector:@selector(scrollToLatestMessageStep:) userInfo:nil repeats:YES];
+}
 -(void)setContent:(NSArray *)inContent {
     NSEnumerator *e = [content objectEnumerator];
     ChatItemViewController *item;
@@ -139,6 +177,7 @@
     }
 }
 -(void)dealloc {
+    [latestMessageScrollTimer invalidate];
     [[NSNotificationCenter defaultCenter] removeObserver:self];
     [super dealloc];
 }
