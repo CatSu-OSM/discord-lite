@@ -7,6 +7,7 @@
 //
 
 #import "ServerItemViewController.h"
+#import "RoundedTextFieldCell.h"
 
 @implementation ServerItemViewController
 
@@ -15,10 +16,66 @@ const CGFloat SELECTED_AVATAR_RADIUS = 16.5f;
 
 -(id)init {
     self = [super init];
-    type = ServerItemViewTypeServer;
-    isSelected = NO;
-    isHovering = NO;
+    if (self) {
+        defaultView = [[NSView_BGColor alloc] initWithFrame:NSMakeRect(0, 0, 69, 60)];
+        view = defaultView;
+        [defaultView setDelegate:self];
+
+        selectionButton = [[NSButton alloc] initWithFrame:NSMakeRect(12, 3, 54, 54)];
+        [selectionButton setBezelStyle:NSShadowlessSquareBezelStyle];
+        [selectionButton setImagePosition:NSImageOnly];
+        [selectionButton setImage:[NSImage imageNamed:@"discord_placeholder"]];
+        [selectionButton setTarget:self];
+        [selectionButton setAction:@selector(selectItem:)];
+        [defaultView addSubview:selectionButton];
+        [selectionButton release];
+
+        statusIndicatorView = [[ServerStatusIndicatorView alloc] initWithFrame:NSMakeRect(0, 0, 9, 60)];
+        [defaultView addSubview:statusIndicatorView];
+        [statusIndicatorView release];
+
+        mentionBadgeLabel = [[BadgeTextField alloc] initWithFrame:NSMakeRect(51, 2, 16, 16)];
+        RoundedTextFieldCell *badgeCell = [[RoundedTextFieldCell alloc] initTextCell:@"1"];
+        [badgeCell setFont:[NSFont systemFontOfSize:[NSFont smallSystemFontSize]]];
+        [badgeCell setTextColor:[NSColor alternateSelectedControlTextColor]];
+        [badgeCell setBackgroundColor:[NSColor colorWithCalibratedRed:0.8827063519 green:0.0 blue:0.01040592166 alpha:1.0]];
+        [mentionBadgeLabel setCell:badgeCell];
+        [badgeCell release];
+        [mentionBadgeLabel setAlignment:NSCenterTextAlignment];
+        [mentionBadgeLabel setDrawsBackground:YES];
+        [mentionBadgeLabel setHidden:YES];
+        [defaultView addSubview:mentionBadgeLabel];
+        [mentionBadgeLabel release];
+
+        separatorView = [[NSView_BGColor alloc] initWithFrame:NSMakeRect(0, 0, 70, 22)];
+        NSBox *separatorLine = [[NSBox alloc] initWithFrame:NSMakeRect(19, 11, 43, 1)];
+        [separatorLine setBoxType:NSBoxCustom];
+        [separatorLine setBorderType:NSLineBorder];
+        [separatorLine setTitlePosition:NSNoTitle];
+        [separatorLine setBorderColor:[NSColor colorWithCalibratedRed:54.0/255.0 green:58.0/255.0 blue:63.0/255.0 alpha:1.0]];
+        [separatorView addSubview:separatorLine];
+        [separatorLine release];
+
+        detailView = [[PopoutView alloc] initWithFrame:NSMakeRect(-1, 0, 258, 79)];
+        detailViewTextField = [[NSTextField_DynamicHeight alloc] initWithFrame:NSMakeRect(35, 30, 192, 19)];
+        [detailViewTextField setBezeled:NO];
+        [detailViewTextField setDrawsBackground:NO];
+        [detailViewTextField setEditable:NO];
+        [detailViewTextField setSelectable:NO];
+        [detailViewTextField setFont:[NSFont systemFontOfSize:16]];
+        [detailViewTextField setTextColor:[NSColor colorWithCalibratedRed:214.0/255.0 green:218.0/255.0 blue:220.0/255.0 alpha:1.0]];
+        [detailView addSubview:detailViewTextField];
+        [detailViewTextField release];
+
+        type = ServerItemViewTypeServer;
+        isSelected = NO;
+        isHovering = NO;
+    }
     return self;
+}
+
+-(id)initWithNibNamed:(NSString *)inNibName bundle:(NSBundle *)bundle {
+    return [self init];
 }
 -(void)awakeFromNib {
     [view setDelegate:self];
@@ -89,7 +146,6 @@ const CGFloat SELECTED_AVATAR_RADIUS = 16.5f;
 }
 -(void)setType:(ServerItemViewType)inType {
     if (inType == ServerItemViewTypeSeparator) {
-        [view release];
         view = separatorView;
     } else if (inType == ServerItemViewTypeMe) {
         iconImage = [[NSImage alloc] initWithData:[representedObject iconImageData]];
@@ -141,7 +197,10 @@ const CGFloat SELECTED_AVATAR_RADIUS = 16.5f;
     if (type != ServerItemViewTypeSeparator) {
         [selectionButton removeTrackingRect:trackingRect];
     }
-    [self.view release];
+    [defaultView setDelegate:nil];
+    [defaultView release];
+    [separatorView release];
+    [detailView release];
     [super dealloc];
 }
 

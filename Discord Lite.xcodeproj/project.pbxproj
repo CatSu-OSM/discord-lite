@@ -21,7 +21,6 @@
 		872660932A461D1D009CE587 /* AsyncHTTPRequestSequencer.m in Sources */ = {isa = PBXBuildFile; fileRef = 872660922A461D1D009CE587 /* AsyncHTTPRequestSequencer.m */; };
 		872660962A461D90009CE587 /* AsyncHTTPRequestSequencerObject.m in Sources */ = {isa = PBXBuildFile; fileRef = 872660952A461D90009CE587 /* AsyncHTTPRequestSequencerObject.m */; };
 		872FCEC8272A4C5F002434B1 /* ServerItemViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 872FCEC6272A4C5F002434B1 /* ServerItemViewController.m */; };
-		872FCECA272A4CDA002434B1 /* ServerItemViewController.xib in Resources */ = {isa = PBXBuildFile; fileRef = 872FCECC272A4CDA002434B1 /* ServerItemViewController.xib */; };
 		872FCED7272A5902002434B1 /* FlippedClipView.m in Sources */ = {isa = PBXBuildFile; fileRef = 872FCED6272A5902002434B1 /* FlippedClipView.m */; };
 		873E712F2D0E7F3200427A00 /* NSTextField+DynamicHeight.m in Sources */ = {isa = PBXBuildFile; fileRef = 873E712E2D0E7F3200427A00 /* NSTextField+DynamicHeight.m */; };
 		873E71322D0E899E00427A00 /* PopoutView.m in Sources */ = {isa = PBXBuildFile; fileRef = 873E71312D0E899E00427A00 /* PopoutView.m */; };
@@ -785,7 +784,6 @@
 				87DA40092739DB28007E7455 /* mention_notification.mp3 in Resources */,
 				878B0B2A2738FC6400547D61 /* discord_purple.png in Resources */,
 				87BE740D278B811A00F61BF7 /* reply_curve.png in Resources */,
-				872FCECA272A4CDA002434B1 /* ServerItemViewController.xib in Resources */,
 				8714B1B12729FCF200DA4AF9 /* DLMainWindowController.xib in Resources */,
 				87C11C9B2728DB7B000046F2 /* MainMenu.xib in Resources */,
 				879E31E12743502A00A21FF5 /* settings.png in Resources */,

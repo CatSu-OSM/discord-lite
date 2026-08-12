@@ -31,6 +31,7 @@ typedef enum {
 
 @interface ServerItemViewController : ViewController <DLServerDelegate> {
     DLServer *representedObject;
+    NSView_BGColor *defaultView;
     IBOutlet NSButton *selectionButton;
     IBOutlet NSView_BGColor *separatorView;
     IBOutlet ServerStatusIndicatorView *statusIndicatorView;
