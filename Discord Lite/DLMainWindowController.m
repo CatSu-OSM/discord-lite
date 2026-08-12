@@ -92,6 +92,13 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
     }
 }
 
+- (void)showWindow:(id)sender {
+    [super showWindow:sender];
+    // NSWindow applies its saved frame just after it is ordered on screen.  Run
+    // once on the next event-loop turn so the panes use that final size.
+    [self performSelector:@selector(layoutMainWindow:) withObject:nil afterDelay:0.0];
+}
+
 - (id)initWithWindowNibName:(NSString *)windowNibName {
     NSWindow *window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 747, 517)
                                                    styleMask:(NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask | NSResizableWindowMask)
@@ -104,6 +111,7 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
     [window release];
     if (self) {
         NSView *contentView = [[self window] contentView];
+        [contentView setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
         NSColor *serverColor = [NSColor colorWithCalibratedRed:23.0/255.0 green:24.0/255.0 blue:26.0/255.0 alpha:1.0];
         NSColor *channelColor = [NSColor colorWithCalibratedRed:32.0/255.0 green:34.0/255.0 blue:37.0/255.0 alpha:1.0];
         NSColor *chatColor = [NSColor colorWithCalibratedRed:37.0/255.0 green:38.0/255.0 blue:42.0/255.0 alpha:1.0];
