@@ -23,7 +23,11 @@ const CGFloat SELECTED_AVATAR_RADIUS = 16.5f;
 
         selectionButton = [[NSButton alloc] initWithFrame:NSMakeRect(12, 3, 54, 54)];
         [selectionButton setBezelStyle:NSShadowlessSquareBezelStyle];
+        [selectionButton setBordered:NO];
+        [selectionButton setTransparent:YES];
         [selectionButton setImagePosition:NSImageOnly];
+        [[selectionButton cell] setHighlightsBy:NSNoCellMask];
+        [[selectionButton cell] setShowsStateBy:NSNoCellMask];
         [selectionButton setImage:[NSImage imageNamed:@"discord_placeholder"]];
         [selectionButton setTarget:self];
         [selectionButton setAction:@selector(selectItem:)];
