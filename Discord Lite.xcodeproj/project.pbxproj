@@ -50,7 +50,6 @@
 		878E498527347A4900BBB18B /* DLWSController.m in Sources */ = {isa = PBXBuildFile; fileRef = 878E498427347A4900BBB18B /* DLWSController.m */; };
 		878EA5FA275477E5002F173A /* DLMessageEditor.m in Sources */ = {isa = PBXBuildFile; fileRef = 878EA5F9275477E5002F173A /* DLMessageEditor.m */; };
 		8791ACC12794AE50005672AB /* DLTwoFactorWindowController.m in Sources */ = {isa = PBXBuildFile; fileRef = 8791ACBF2794AE50005672AB /* DLTwoFactorWindowController.m */; };
-		8791ACC32794AF0D005672AB /* DLTwoFactorWindowController.xib in Resources */ = {isa = PBXBuildFile; fileRef = 8791ACC52794AF0D005672AB /* DLTwoFactorWindowController.xib */; };
 		8791ACC82794B7C9005672AB /* TwoFactorEntryFormatter.m in Sources */ = {isa = PBXBuildFile; fileRef = 8791ACC72794B7C9005672AB /* TwoFactorEntryFormatter.m */; };
 		87994C6A2753450300A27326 /* DLTextParser.m in Sources */ = {isa = PBXBuildFile; fileRef = 87994C692753450300A27326 /* DLTextParser.m */; };
 		879E31C62743070400A21FF5 /* AttachmentPreviewViewController.xib in Resources */ = {isa = PBXBuildFile; fileRef = 879E31C82743070400A21FF5 /* AttachmentPreviewViewController.xib */; };
@@ -71,7 +70,6 @@
 		87A6E2C4273612B5000DC06E /* BezierPathRoundedRect.m in Sources */ = {isa = PBXBuildFile; fileRef = 87A6E2C3273612B5000DC06E /* BezierPathRoundedRect.m */; };
 		87AD27D72741D3230092F428 /* HorizontalDynamicScrollView.m in Sources */ = {isa = PBXBuildFile; fileRef = 87AD27D62741D3230092F428 /* HorizontalDynamicScrollView.m */; };
 		87AD27DA2741EF9C0092F428 /* PendingAttachmentViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 87AD27D92741EF9C0092F428 /* PendingAttachmentViewController.m */; };
-		87AD27DD2741EFBC0092F428 /* PendingAttachmentViewController.xib in Resources */ = {isa = PBXBuildFile; fileRef = 87AD27DF2741EFBC0092F428 /* PendingAttachmentViewController.xib */; };
 		87B886372CEEF8A7005117BE /* libcrypto.3.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 87B886342CEEF8A7005117BE /* libcrypto.3.dylib */; };
 		87B886382CEEF8A7005117BE /* libcurl.4.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 87B886352CEEF8A7005117BE /* libcurl.4.dylib */; };
 		87B886392CEEF8A7005117BE /* libssl.3.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 87B886362CEEF8A7005117BE /* libssl.3.dylib */; };
@@ -785,9 +783,7 @@
 				87C0835E2728E28500C8F933 /* Discord-Logo.png in Resources */,
 				8788B61728EE2F0A00B338DF /* attach.png in Resources */,
 				87DA40092739DB28007E7455 /* mention_notification.mp3 in Resources */,
-				8791ACC32794AF0D005672AB /* DLTwoFactorWindowController.xib in Resources */,
 				878B0B2A2738FC6400547D61 /* discord_purple.png in Resources */,
-				87AD27DD2741EFBC0092F428 /* PendingAttachmentViewController.xib in Resources */,
 				87BE740D278B811A00F61BF7 /* reply_curve.png in Resources */,
 				872FCECA272A4CDA002434B1 /* ServerItemViewController.xib in Resources */,
 				8714B1B12729FCF200DA4AF9 /* DLMainWindowController.xib in Resources */,
