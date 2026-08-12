@@ -27,6 +27,11 @@
     return content;
 }
 -(void)screenResize {
+    NSClipView *clipView = [self contentView];
+    // In this flipped chat view, a clip origin at minY is the visual bottom.
+    // Preserve that position while asynchronous image/text layout changes the
+    // document height.
+    BOOL wasAtVisualBottom = (NSMinY([clipView bounds]) <= 1.0f);
     CGFloat currentHeight = 0;
     NSEnumerator *e = [content objectEnumerator];
     ChatItemViewController *item;
@@ -50,6 +55,10 @@
         currentHeight += [item expectedHeight];
     }
     [self.documentView setNeedsDisplay:YES];
+    if (wasAtVisualBottom) {
+        NSRect documentBounds = [[self documentView] bounds];
+        [[self documentView] scrollRectToVisible:NSMakeRect(NSMinX(documentBounds), NSMinY(documentBounds), 1.0f, 1.0f)];
+    }
 }
 
 -(void)layoutContentAtBottom {
