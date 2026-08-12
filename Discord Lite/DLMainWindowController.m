@@ -865,7 +865,10 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
         [chatHeaderLabel setStringValue:[c name]];
         [chatHeaderImage setImage:[[[NSImage alloc] initWithData:[c subImageData]] autorelease]];
         [chatScrollView setContent:views];
-        [[chatScrollView contentView] scrollToPoint: NSMakePoint(chatScrollView.frame.origin.x, chatScrollView.frame.origin.y)];
+        // Scroll coordinates are relative to the chat document, not the main
+        // window. Using the pane's x-position (338) briefly shifted chat under
+        // the server and channel columns whenever a channel was selected.
+        [[chatScrollView contentView] scrollToPoint:NSMakePoint(0.0f, 0.0f)];
         [chatScrollView reflectScrolledClipView: [chatScrollView contentView]];
         if ([c hasUnreadMessages] || [c mentionCount] > 0) {
             [[DLController sharedInstance] acknowledgeMessage:[c lastMessage]];
