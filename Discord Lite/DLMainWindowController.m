@@ -17,8 +17,157 @@
 const NSTimeInterval TYPING_SEND_INTERVAL = 8.0;
 const CGFloat MY_USER_AVATAR_RADIUS = 18.0f;
 
+static NSTextField *DLLabel(NSRect frame, NSString *text, NSFont *font, NSColor *color) {
+    NSTextField *label = [[NSTextField alloc] initWithFrame:frame];
+    [label setBezeled:NO];
+    [label setDrawsBackground:NO];
+    [label setEditable:NO];
+    [label setSelectable:NO];
+    [label setLineBreakMode:NSLineBreakByTruncatingTail];
+    [label setStringValue:text];
+    [label setFont:font];
+    [label setTextColor:color];
+    return label;
+}
+
+static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView, NSColor *color, NSScroller_BGColor **scroller) {
+    FlippedClipView *clipView = [[FlippedClipView alloc] initWithFrame:[scrollView bounds]];
+    [clipView setDrawsBackground:YES];
+    [clipView setBackgroundColor:color];
+    [scrollView setContentView:clipView];
+    [clipView release];
+    [scrollView setDocumentView:documentView];
+    [scrollView setHasVerticalScroller:YES];
+    [scrollView setHasHorizontalScroller:NO];
+    NSScroller_BGColor *verticalScroller = [[NSScroller_BGColor alloc] init];
+    [scrollView setVerticalScroller:verticalScroller];
+    [verticalScroller release];
+    if (scroller) {
+        *scroller = [scrollView verticalScroller];
+    }
+}
+
+- (id)initWithWindowNibName:(NSString *)windowNibName {
+    NSWindow *window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 747, 517)
+                                                   styleMask:(NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask | NSResizableWindowMask)
+                                                     backing:NSBackingStoreBuffered
+                                                       defer:NO];
+    [window setTitle:@"Discord Lite"];
+    [window setMinSize:NSMakeSize(747, 317)];
+    [window setFrameAutosaveName:@"DLMainWindow"];
+    self = [super initWithWindow:window];
+    [window release];
+    if (self) {
+        NSView *contentView = [[self window] contentView];
+        NSColor *serverColor = [NSColor colorWithCalibratedRed:23.0/255.0 green:24.0/255.0 blue:26.0/255.0 alpha:1.0];
+        NSColor *channelColor = [NSColor colorWithCalibratedRed:32.0/255.0 green:34.0/255.0 blue:37.0/255.0 alpha:1.0];
+        NSColor *chatColor = [NSColor colorWithCalibratedRed:37.0/255.0 green:38.0/255.0 blue:42.0/255.0 alpha:1.0];
+
+        serversScrollView = [[DynamicScrollView alloc] initWithFrame:NSMakeRect(0, 0, 80, 517)];
+        DLConfigureScrollView(serversScrollView, [[[NSView alloc] initWithFrame:NSMakeRect(0, 0, 80, 100)] autorelease], serverColor, &serverViewScroller);
+        [contentView addSubview:serversScrollView];
+
+        channelsScrollView = [[DynamicScrollView alloc] initWithFrame:NSMakeRect(80, 56, 258, 419)];
+        DLConfigureScrollView(channelsScrollView, [[[NSView alloc] initWithFrame:NSMakeRect(0, 0, 258, 100)] autorelease], channelColor, &channelViewScroller);
+        [contentView addSubview:channelsScrollView];
+
+        chatScrollView = [[ChatScrollView alloc] initWithFrame:NSMakeRect(338, 56, 409, 419)];
+        DLConfigureScrollView(chatScrollView, [[[NSView alloc] initWithFrame:NSMakeRect(0, 0, 409, 100)] autorelease], chatColor, &chatViewScroller);
+        [contentView addSubview:chatScrollView];
+
+        userInfoView = [[NSView_BGColor alloc] initWithFrame:NSMakeRect(80, 0, 258, 56)];
+        myUserAvatarImage = [[NSImageView alloc] initWithFrame:NSMakeRect(11, 11, 35, 34)];
+        [myUserAvatarImage setImageScaling:NSImageScaleProportionallyDown];
+        [userInfoView addSubview:myUserAvatarImage];
+        myUsernameTextField = DLLabel(NSMakeRect(52, 29, 162, 17), @"User", [NSFont boldSystemFontOfSize:[NSFont systemFontSize]], [NSColor whiteColor]);
+        [userInfoView addSubview:myUsernameTextField];
+        myDiscTextField = DLLabel(NSMakeRect(52, 11, 162, 17), @"#", [NSFont systemFontOfSize:[NSFont systemFontSize]], [NSColor lightGrayColor]);
+        [userInfoView addSubview:myDiscTextField];
+        NSButton *settingsButton = [[NSButton alloc] initWithFrame:NSMakeRect(220, 19, 18, 18)];
+        [settingsButton setBezelStyle:NSShadowlessSquareBezelStyle];
+        [settingsButton setImage:[NSImage imageNamed:@"settings"]];
+        [settingsButton setImagePosition:NSImageOnly];
+        [settingsButton setTarget:self];
+        [settingsButton setAction:@selector(showPreferencesWindow:)];
+        [userInfoView addSubview:settingsButton];
+        [settingsButton release];
+        [contentView addSubview:userInfoView];
+
+        channelViewHeader = [[NSView_BGColor alloc] initWithFrame:NSMakeRect(80, 475, 258, 42)];
+        serverLabel = DLLabel(NSMakeRect(13, 12, 234, 19), @"Server", [NSFont boldSystemFontOfSize:15], [NSColor whiteColor]);
+        [channelViewHeader addSubview:serverLabel];
+        [contentView addSubview:channelViewHeader];
+
+        chatViewHeader = [[NSView_BGColor alloc] initWithFrame:NSMakeRect(338, 475, 409, 42)];
+        chatHeaderImage = [[NSImageView alloc] initWithFrame:NSMakeRect(13, 6, 31, 31)];
+        [chatHeaderImage setImage:[NSImage imageNamed:@"uI4"]];
+        [chatHeaderImage setImageScaling:NSImageScaleProportionallyDown];
+        [chatViewHeader addSubview:chatHeaderImage];
+        chatHeaderLabel = DLLabel(NSMakeRect(50, 12, 345, 19), @"Channel", [NSFont boldSystemFontOfSize:15], [NSColor whiteColor]);
+        [chatViewHeader addSubview:chatHeaderLabel];
+        [contentView addSubview:chatViewHeader];
+
+        messageEntryContainerView = [[NSView_BGColor alloc] initWithFrame:NSMakeRect(338, 0, 409, 56)];
+        messageEntryScrollView = [[NSScrollView alloc] initWithFrame:NSMakeRect(38, 17, 351, 22)];
+        PaddedTextView *entryView = [[PaddedTextView alloc] initWithFrame:NSMakeRect(0, 0, 336, 22)];
+        [entryView setEditable:YES];
+        [entryView setBackgroundColor:[NSColor colorWithCalibratedRed:42.0/255.0 green:44.0/255.0 blue:49.0/255.0 alpha:1.0]];
+        [messageEntryScrollView setDocumentView:entryView];
+        [entryView release];
+        [messageEntryScrollView setHasHorizontalScroller:NO];
+        [messageEntryScrollView setHasVerticalScroller:YES];
+        NSScroller_BGColor *entryScroller = [[NSScroller_BGColor alloc] init];
+        [messageEntryScrollView setVerticalScroller:entryScroller];
+        [entryScroller release];
+        messageEntryViewScroller = [messageEntryScrollView verticalScroller];
+        messageEntryTextView = (PaddedTextView *)[messageEntryScrollView documentView];
+        [messageEntryContainerView addSubview:messageEntryScrollView];
+        attachButton = [[NSButton alloc] initWithFrame:NSMakeRect(12, 19, 18, 18)];
+        [attachButton setBezelStyle:NSRegularSquareBezelStyle];
+        [attachButton setImage:[NSImage imageNamed:@"attach"]];
+        [attachButton setImagePosition:NSImageOnly];
+        [attachButton setEnabled:NO];
+        [attachButton setTarget:self];
+        [attachButton setAction:@selector(showFileOpenDialog:)];
+        [messageEntryContainerView addSubview:attachButton];
+        typingStatusTextField = DLLabel(NSMakeRect(36, 4, 355, 11), @"Typing...", [NSFont systemFontOfSize:[NSFont systemFontSizeForControlSize:NSMiniControlSize]], [NSColor lightGrayColor]);
+        [typingStatusTextField setHidden:YES];
+        [messageEntryContainerView addSubview:typingStatusTextField];
+        [contentView addSubview:messageEntryContainerView];
+
+        pendingAttachmentsScrollView = [[HorizontalDynamicScrollView alloc] initWithFrame:NSMakeRect(0, 0, 409, 94)];
+        DLConfigureScrollView(pendingAttachmentsScrollView, [[[NSView alloc] initWithFrame:NSMakeRect(0, 0, 50, 77)] autorelease], [NSColor colorWithCalibratedRed:42.0/255.0 green:44.0/255.0 blue:49.0/255.0 alpha:1.0], &pendingAttachmentViewScroller);
+        [pendingAttachmentsScrollView setHasVerticalScroller:NO];
+        [pendingAttachmentsScrollView setHasHorizontalScroller:YES];
+        NSScroller_BGColor *attachmentScroller = [[NSScroller_BGColor alloc] init];
+        [pendingAttachmentsScrollView setHorizontalScroller:attachmentScroller];
+        [attachmentScroller release];
+        pendingAttachmentViewScroller = (NSScroller_BGColor *)[pendingAttachmentsScrollView horizontalScroller];
+        [pendingAttachmentsScrollView performSelector:@selector(awakeFromNib)];
+        tagSelectionScrollView = [[DynamicScrollView alloc] initWithFrame:NSMakeRect(338, 56, 409, 25)];
+        DLConfigureScrollView(tagSelectionScrollView, [[[NSView alloc] initWithFrame:NSMakeRect(0, 0, 409, 25)] autorelease], chatColor, &tagSelectionViewScroller);
+        replyToView = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 480, 28)];
+        replyToTextField = DLLabel(NSMakeRect(9, 6, 443, 17), @"Replying to", [NSFont systemFontOfSize:[NSFont systemFontSize]], [NSColor lightGrayColor]);
+        [replyToView addSubview:replyToTextField];
+        NSButton *removeReplyButton = [[NSButton alloc] initWithFrame:NSMakeRect(458, 6, 17, 17)];
+        [removeReplyButton setBezelStyle:NSShadowlessSquareBezelStyle];
+        [removeReplyButton setImage:[NSImage imageNamed:@"delete"]];
+        [removeReplyButton setImagePosition:NSImageOnly];
+        [removeReplyButton setTarget:self];
+        [removeReplyButton setAction:@selector(removeReferencedMessage:)];
+        [replyToView addSubview:removeReplyButton];
+        [removeReplyButton release];
+        [self windowDidLoad];
+    }
+    return self;
+}
+
 - (void)windowDidLoad {
     [super windowDidLoad];
+    if (hasConfiguredWindow) {
+        return;
+    }
+    hasConfiguredWindow = YES;
     
     [messageEntryTextView setSelectedTextAttributes:[NSDictionary dictionaryWithObjects:[NSArray arrayWithObjects:[DLTextParser DEFAULT_TEXT_COLOR], [DLTextParser DEFAULT_TEXT_HIGHLIGHT_COLOR], nil] forKeys:[NSArray arrayWithObjects:NSForegroundColorAttributeName, NSBackgroundColorAttributeName, nil]]];
     

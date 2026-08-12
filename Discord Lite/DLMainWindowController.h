@@ -93,6 +93,7 @@ typedef enum {
     NSTimer *serverItemTrackingTimer;
     
     id<DLMainWindowDelegate> delegate;
+    BOOL hasConfiguredWindow;
 }
 - (IBAction)showFileOpenDialog:(id)sender;
 - (IBAction)showPreferencesWindow:(id)sender;

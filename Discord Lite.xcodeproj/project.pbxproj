@@ -14,7 +14,6 @@
 		8714B1A62729ED5200DA4AF9 /* DLError.m in Sources */ = {isa = PBXBuildFile; fileRef = 8714B1A52729ED5200DA4AF9 /* DLError.m */; };
 		8714B1AB2729F5B000DA4AF9 /* DLErrorHandler.m in Sources */ = {isa = PBXBuildFile; fileRef = 8714B1AA2729F5B000DA4AF9 /* DLErrorHandler.m */; };
 		8714B1AF2729FC5000DA4AF9 /* DLMainWindowController.m in Sources */ = {isa = PBXBuildFile; fileRef = 8714B1AD2729FC5000DA4AF9 /* DLMainWindowController.m */; };
-		8714B1B12729FCF200DA4AF9 /* DLMainWindowController.xib in Resources */ = {isa = PBXBuildFile; fileRef = 8714B1B32729FCF200DA4AF9 /* DLMainWindowController.xib */; };
 		8714B1B9272A0C6900DA4AF9 /* DLServer.m in Sources */ = {isa = PBXBuildFile; fileRef = 8714B1B8272A0C6900DA4AF9 /* DLServer.m */; };
 		871E7F1428B47C1200D498E7 /* DLPreferencesHandler.m in Sources */ = {isa = PBXBuildFile; fileRef = 871E7F1328B47C1200D498E7 /* DLPreferencesHandler.m */; };
 		8725137A28EF98AD00BD5170 /* delete.png in Resources */ = {isa = PBXBuildFile; fileRef = 8725137928EF98AD00BD5170 /* delete.png */; };
@@ -784,7 +783,6 @@
 				87DA40092739DB28007E7455 /* mention_notification.mp3 in Resources */,
 				878B0B2A2738FC6400547D61 /* discord_purple.png in Resources */,
 				87BE740D278B811A00F61BF7 /* reply_curve.png in Resources */,
-				8714B1B12729FCF200DA4AF9 /* DLMainWindowController.xib in Resources */,
 				87C11C9B2728DB7B000046F2 /* MainMenu.xib in Resources */,
 				879E31E12743502A00A21FF5 /* settings.png in Resources */,
 				8725137A28EF98AD00BD5170 /* delete.png in Resources */,
