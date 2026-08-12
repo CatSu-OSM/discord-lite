@@ -34,13 +34,16 @@
         currentHeight += [item expectedHeight];
     }
     NSRect frame = [self.documentView frame];
-    frame.size.height = currentHeight;
-    [self.documentView setFrame: frame];
+    frame.origin = NSMakePoint(0.0f, 0.0f);
+    frame.size.width = [[self contentView] bounds].size.width;
+    frame.size.height = MAX(currentHeight, [[self contentView] bounds].size.height);
+    [self.documentView setFrame:frame];
     currentHeight = 0;
     e = [content objectEnumerator];
     while (item = [e nextObject]) {
         NSRect itemFrame = item.view.frame;
         itemFrame.size.height = [item expectedHeight];
+        itemFrame.size.width = frame.size.width;
         itemFrame.origin.y = currentHeight;
         item.view.frame = itemFrame;
         [item.view setNeedsDisplay:YES];
@@ -56,25 +59,11 @@
     }
     [content release];
     content = [[NSMutableArray alloc] initWithArray:inContent];
-    CGFloat height = 0;
-    e = [content reverseObjectEnumerator];
+    e = [content objectEnumerator];
     while (item = [e nextObject]) {
-        CGFloat expectedHeight = [item expectedHeight];
-        NSRect itemFrame = item.view.frame;
-        height += expectedHeight;
-        itemFrame.size.height = expectedHeight;
-        itemFrame.size.width = [self.documentView frame].size.width;
-        itemFrame.origin.y = [self.documentView frame].size.height - height;
-        item.view.frame = itemFrame;
         [self.documentView addSubview:item.view];
-        [item.view setNeedsDisplay:YES];
     }
-    NSRect frame = [self.documentView frame];
-    frame.origin.x = self.frame.origin.x;
-    frame.origin.y = self.frame.origin.y;
-    frame.size.height = height;
-    [self.documentView setFrame: frame];
-    [self.documentView setNeedsDisplay:YES];
+    [self screenResize];
     [self performSelector:@selector(screenResize) withObject:nil afterDelay:0.5];
 }
 -(void)appendContent:(NSArray *)inContent {

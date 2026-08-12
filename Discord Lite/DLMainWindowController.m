@@ -69,6 +69,13 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
     NSRect entryFrame = [messageEntryScrollView frame];
     entryFrame.size.width = chatWidth - 58.0f;
     [messageEntryScrollView setFrame:entryFrame];
+    [[messageEntryScrollView contentView] setDrawsBackground:NO];
+    NSRect entryDocumentFrame = [messageEntryTextView frame];
+    entryDocumentFrame.origin = NSMakePoint(0.0f, 0.0f);
+    entryDocumentFrame.size.width = [[messageEntryScrollView contentView] bounds].size.width;
+    [messageEntryTextView setFrame:entryDocumentFrame];
+    [[messageEntryTextView textContainer] setContainerSize:NSMakeSize(entryDocumentFrame.size.width, 1000000.0f)];
+    [[messageEntryTextView textContainer] setWidthTracksTextView:YES];
     NSRect typingFrame = [typingStatusTextField frame];
     typingFrame.size.width = chatWidth - 54.0f;
     [typingStatusTextField setFrame:typingFrame];
@@ -90,6 +97,7 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
         tagFrame.size.width = chatWidth;
         [tagSelectionScrollView setFrame:tagFrame];
     }
+    [chatScrollView screenResize];
 }
 
 - (void)showWindow:(id)sender {
@@ -169,6 +177,7 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
         [entryView release];
         [messageEntryScrollView setHasHorizontalScroller:NO];
         [messageEntryScrollView setHasVerticalScroller:YES];
+        [messageEntryScrollView setDrawsBackground:NO];
         NSScroller_BGColor *entryScroller = [[NSScroller_BGColor alloc] init];
         [messageEntryScrollView setVerticalScroller:entryScroller];
         [entryScroller release];
