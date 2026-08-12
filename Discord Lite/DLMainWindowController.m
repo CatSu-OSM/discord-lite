@@ -886,7 +886,6 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
         [chatHeaderImage setImage:[[[NSImage alloc] initWithData:[c subImageData]] autorelease]];
         [chatScrollView setContent:views];
         [self scrollChatToLatestMessage];
-        [self performSelector:@selector(scrollChatToLatestMessage) withObject:nil afterDelay:0.6];
         if ([c hasUnreadMessages] || [c mentionCount] > 0) {
             [[DLController sharedInstance] acknowledgeMessage:[c lastMessage]];
         }
