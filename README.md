@@ -1,62 +1,82 @@
-# Discord Lite
+# Discord Lite — legacy-build fork
 
-### An ultra-lightweight native Discord client for vintage and modern Mac OS
+An ultra-lightweight native Discord client for vintage and modern Macs.
 
-![screenshot1](https://raw.githubusercontent.com/dosdude1/discord-lite/master/res/screenshot1.png)
+This repository is the **CatSu-OSM fork** of [dosdude1/discord-lite](https://github.com/dosdude1/discord-lite). Its `master` branch contains compatibility work for building the client as a 32-bit Intel / PowerPC application with **Xcode 4.6.3 on OS X 10.7 Lion**. It is not intended to be proposed back to the upstream project.
 
-### Minimum System Requirements
+## What changed in this fork
 
-- Mac OS X version 10.4 (Tiger)
-- PowerPC G3 CPU
-- 256MB of system memory
+The original project’s Interface Builder archives were written by a newer Xcode and could not be read by Xcode 4. The affected UI is now constructed in Objective-C instead of being compiled from XIB files.
 
+- Main window, login, settings, CAPTCHA, attachment viewer, and two-factor UI are code-built.
+- Server, channel, direct-message, chat-item, attachment-preview, tag-selection, and pending-attachment views are code-built.
+- The main window, chat column, compose box, icons, and message metadata have legacy-Cocoa layout/styling fixes.
+- Server icons remain round normally and change to rounded squares when selected.
+- Image attachments are recognized by both Discord MIME type and common file extensions, including `.png`.
 
-### Current Functional State
+This removes the Xcode 4 error:
 
-#### What Works
+> The document "…ViewController.xib" could not be opened. Could not read archive.
 
-- Viewing and interaction in both servers and direct messages
-- Sending images and attachments
-- Viewing and downloading images and attachments
-- Mention/ping notifications
-- Pinging users
-- Typing indication
-- Viewing and sending replies
-- URL hotlinks
-- Two-factor authentication
-- Captchas (in Mac OS X 10.5 or later only)
-- Editing messages
-- Deleting messages
+## Requirements for legacy builds
 
+- An **Intel Mac** running **OS X 10.7 Lion**.
+- **Xcode 4.6.3**.
+- XcodeLegacy’s legacy compilers and the **Mac OS X 10.5** and **10.7 SDK** packages for PowerPC/older-Intel targets.
 
-#### What does not work
+~~Use a modern Xcode version to compile the 32-bit build.~~ Modern Xcode versions reject `i386`; they cannot produce this project’s 32-bit Intel build. Apple Silicon Macs also cannot create PowerPC or 32-bit Intel binaries.
 
-(I plan to implement all the following unless noted otherwise)
+## Build on Lion / Xcode 4.6.3
 
-- Message web embeds
+1. Get this fork’s `master` branch. If the Lion-era Git client cannot connect to GitHub because of TLS, download the repository ZIP from GitHub on another machine and copy it to the Lion Mac.
+
+2. Install Xcode 4.6.3 in `/Applications/Xcode.app`, launch it once, and accept its license.
+
+3. Install XcodeLegacy with the legacy compiler and SDK packages. XcodeLegacy needs the Xcode 3.2.6 and Xcode 4.6.3 installer images available locally to build its packages. From the XcodeLegacy directory:
+
+   ```sh
+   sudo ./XcodeLegacy.sh -compilers -osx105 -osx107 buildpackages
+   sudo ./XcodeLegacy.sh -path=/Applications/Xcode.app -compilers -osx105 -osx107 install
+   ```
+
+4. Open `Discord Lite.xcodeproj` in Xcode 4.6.3.
+
+5. Select the **Discord Lite** target and choose the required architecture:
+
+   - `i386` for 32-bit Intel Macs.
+   - `ppc` for PowerPC Macs.
+   - A universal configuration only when every selected architecture and SDK is installed.
+
+6. Build and run with **Product → Build** or the Run button.
+
+The project’s interface is code-built, so no XIB conversion or newer Interface Builder is needed.
+
+## Minimum target
+
+- Mac OS X 10.4 Tiger
+- PowerPC G3 or Intel processor
+- 256 MB RAM
+
+The available features depend on Discord’s current API behavior and the target operating system. CAPTCHA support requires OS X 10.5 or later.
+
+## Current functional state
+
+### Works
+
+- Servers and direct messages
+- Text messages, replies, editing, deletion, mentions, typing status, and links
+- Image and file attachments, including downloads
+- Two-factor authentication and CAPTCHA flow
+- SOCKS proxy settings
+
+### Not implemented
+
 - Voice and video chat
-- Friend requests (will not be implemented due to Discord TOS concerns)
+- Message web embeds
+- Friend requests
 
+## Notes
 
-### Important Notes
-
-- As of version 0.3-alpha, a new Curl and OpenSSL-based backend for both the WebSocket and HTTP requests has been implemented. As such, the application now has full TLS v1.3 support, and once again works without the need of going through a proxy running on a newer machine.
-- OS X 10.4 Tiger on Intel can only run 32-bit applications, but will try to load the 64-bit slice of the FAT binary. To work around this, you need to "thin" the binary for i386 (or remove the x86_64 slice) using "lipo".
-
-
-### Releases
-
-Prebuilt Universal "Quad-FAT" binaries can be found in the [Releases](https://github.com/dosdude1/discord-lite/releases) section. You can download and run on PowerPC, 32-bit Intel, 64-bit Intel, or ARM (Apple Silicon) Macs.
-
-Alternatively, you can download the latest release off [my website](http://dosdude1.com/apps/Discord%20Lite.dmg), which is loadable on the older machines.
-
-
-### Building
-
-~~You can use a modern Xcode version to build this application, but installing legacy SDKs and compilers is necessary using [Xcode Legacy](https://github.com/devernay/xcodelegacy) to compile for older architectures.~~
-
-The PowerPC and 32-bit Intel release must be built on an **Intel Mac** using **Xcode 4.6.3 on OS X 10.7 Lion**, plus the XcodeLegacy compiler and Mac OS X 10.5 SDK packages extracted from Xcode 3.2.6. Xcode 12 and newer reject the `i386` architecture before compiling; Apple Silicon Macs cannot produce the PowerPC or 32-bit Intel slices.
-
-~~Once Xcode Legacy components have been installed, the application can simply be built and run in Xcode.~~ The current interface files were saved in a newer Interface Builder format than Xcode 4 can read. They must be converted to an Xcode 4-compatible XIB/NIB format before a complete legacy build can succeed.
-
-**Note:** In order to compile a working Intel 64-bit binary for OS X 10.5 Leopard, you must either build with the 10.5 SDK itself, or use the CoreFoundation and Foundation framework binaries from the 10.5 SDK in a later SDK.
+- ~~The UI must be converted to an Xcode 4-compatible XIB/NIB format before a legacy build can succeed.~~ This fork replaces the affected XIB UI with Objective-C/Cocoa views.
+- OS X 10.4 Intel runs 32-bit applications. If distributing a multi-architecture binary to Tiger Intel, remove the x86_64 slice with `lipo` if necessary.
+- Upstream prebuilt releases and support remain available from [dosdude1/discord-lite releases](https://github.com/dosdude1/discord-lite/releases).
