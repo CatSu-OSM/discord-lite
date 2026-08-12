@@ -9,7 +9,6 @@
 /* Begin PBXBuildFile section */
 		87062772278E97AA0056BD71 /* captcha_hcaptcha.html in Resources */ = {isa = PBXBuildFile; fileRef = 87062771278E97AA0056BD71 /* captcha_hcaptcha.html */; };
 		87062776278E9CF20056BD71 /* DLCaptchaWindowController.m in Sources */ = {isa = PBXBuildFile; fileRef = 87062774278E9CF20056BD71 /* DLCaptchaWindowController.m */; };
-		87062778278E9CFF0056BD71 /* DLCaptchaWindowController.xib in Resources */ = {isa = PBXBuildFile; fileRef = 8706277A278E9CFF0056BD71 /* DLCaptchaWindowController.xib */; };
 		8706277E278EB2BB0056BD71 /* captcha_recaptcha.html in Resources */ = {isa = PBXBuildFile; fileRef = 8706277D278EB2BB0056BD71 /* captcha_recaptcha.html */; };
 		8714B1A62729ED5200DA4AF9 /* DLError.m in Sources */ = {isa = PBXBuildFile; fileRef = 8714B1A52729ED5200DA4AF9 /* DLError.m */; };
 		8714B1AB2729F5B000DA4AF9 /* DLErrorHandler.m in Sources */ = {isa = PBXBuildFile; fileRef = 8714B1AA2729F5B000DA4AF9 /* DLErrorHandler.m */; };
@@ -53,7 +52,6 @@
 		879E31E12743502A00A21FF5 /* settings.png in Resources */ = {isa = PBXBuildFile; fileRef = 879E31E02743502A00A21FF5 /* settings.png */; };
 		87A32B26273F149A003D64BD /* NSView+Events.m in Sources */ = {isa = PBXBuildFile; fileRef = 87A32B25273F149A003D64BD /* NSView+Events.m */; };
 		87A32B2D273F1A28003D64BD /* DLAttachmentWindowController.m in Sources */ = {isa = PBXBuildFile; fileRef = 87A32B2B273F1A28003D64BD /* DLAttachmentWindowController.m */; };
-		87A32B2F273F1ADC003D64BD /* DLAttachmentWindowController.xib in Resources */ = {isa = PBXBuildFile; fileRef = 87A32B31273F1ADC003D64BD /* DLAttachmentWindowController.xib */; };
 		87A38DD02732FEDB002385EE /* HTTPCache.m in Sources */ = {isa = PBXBuildFile; fileRef = 87A38DCF2732FEDB002385EE /* HTTPCache.m */; };
 		87A38DD32732FF76002385EE /* HTTPCacheData.m in Sources */ = {isa = PBXBuildFile; fileRef = 87A38DD22732FF76002385EE /* HTTPCacheData.m */; };
 		87A38DD627330B49002385EE /* NSView+Border.m in Sources */ = {isa = PBXBuildFile; fileRef = 87A38DD527330B49002385EE /* NSView+Border.m */; };
@@ -784,8 +782,6 @@
 				879E31E12743502A00A21FF5 /* settings.png in Resources */,
 				8725137A28EF98AD00BD5170 /* delete.png in Resources */,
 				87062772278E97AA0056BD71 /* captcha_hcaptcha.html in Resources */,
-				87062778278E9CFF0056BD71 /* DLCaptchaWindowController.xib in Resources */,
-				87A32B2F273F1ADC003D64BD /* DLAttachmentWindowController.xib in Resources */,
 				879E31C62743070400A21FF5 /* AttachmentPreviewViewController.xib in Resources */,
 				87F066E228B553DC00FE92A2 /* DLPreferencesWindowController.xib in Resources */,
 				8742C86B2730EE85005359DC /* ChatItemViewController.xib in Resources */,
