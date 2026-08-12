@@ -158,6 +158,22 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
         [removeReplyButton setAction:@selector(removeReferencedMessage:)];
         [replyToView addSubview:removeReplyButton];
         [removeReplyButton release];
+
+        // These masks were previously supplied by the MainWindow XIB. Keep the
+        // server and channel columns fixed, while allowing the chat column to
+        // consume every extra pixel when the user resizes the window.
+        [serversScrollView setAutoresizingMask:NSViewHeightSizable];
+        [channelsScrollView setAutoresizingMask:NSViewHeightSizable];
+        [chatScrollView setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
+        [userInfoView setAutoresizingMask:NSViewMaxXMargin | NSViewMaxYMargin];
+        [channelViewHeader setAutoresizingMask:NSViewMinYMargin];
+        [chatViewHeader setAutoresizingMask:NSViewWidthSizable | NSViewMinYMargin];
+        [messageEntryContainerView setAutoresizingMask:NSViewWidthSizable | NSViewMaxYMargin];
+        [messageEntryScrollView setAutoresizingMask:NSViewWidthSizable | NSViewMinYMargin];
+        [pendingAttachmentsScrollView setAutoresizingMask:NSViewWidthSizable | NSViewMaxYMargin];
+        [tagSelectionScrollView setAutoresizingMask:NSViewWidthSizable | NSViewMaxYMargin];
+        [replyToView setAutoresizingMask:NSViewWidthSizable | NSViewMaxYMargin];
+        [contentView resizeSubviewsWithOldSize:NSMakeSize(747.0f, 517.0f)];
         [self windowDidLoad];
     }
     return self;
