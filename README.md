@@ -53,14 +53,46 @@ Alternatively, you can download the latest release off [my website](http://dosdu
 
 ### Building
 
-You can use a modern Xcode version to build this application, but installing legacy SDKs and compilers is necessary using [Xcode Legacy](https://github.com/devernay/xcodelegacy) to compile for older architectures.
+~~You can use a modern Xcode version to build this application, but installing legacy SDKs and compilers is necessary using [Xcode Legacy](https://github.com/devernay/xcodelegacy) to compile for older architectures.~~
 
-The following components of Xcode Legacy need to be installed:
+Building the universal release (`ppc`, `i386`, and `x86_64`) requires an **Intel Mac**, **Xcode 12.5.1**, and [XcodeLegacy](https://github.com/devernay/xcodelegacy). Xcode 13 and newer reject the `i386` architecture. Apple Silicon Macs cannot produce the PowerPC or 32-bit Intel slices.
 
-- Compilers
-- Mac OS X 10.5 SDK
-- Mac OS X 10.7 SDK
+Install Xcode 12.5.1 as `/Applications/Xcode.app`, open it once to accept its licence and install its components, then quit it. Download the following legacy Xcode disk images from the Apple Developer Downloads portal and place them beside `XcodeLegacy.sh`:
 
-Once Xcode Legacy components have been installed, the application can simply be built and run in Xcode.
+- Xcode 3.2.6 (`xcode_3.2.6_and_ios_sdk_4.3.dmg`) for GCC 4.2 and the Mac OS X 10.5 SDK
+- Xcode 4.6.3 (`Xcode_4.6.3.dmg`) for the Mac OS X 10.7 SDK
+
+Extract the XcodeLegacy packages:
+
+```bash
+chmod +x XcodeLegacy.sh
+./XcodeLegacy.sh -path=/Applications/Xcode.app -compilers -osx105 -osx107 buildpackages
+```
+
+Xcode 12 stores its architecture specification in a different location than the one expected by XcodeLegacy. Before installation, patch the script and keep a backup:
+
+```bash
+cp XcodeLegacy.sh XcodeLegacy.sh.backup
+sed -i '' 's|Developer/Library/Xcode/Specifications/MacOSX Architectures.xcspec|Developer/Library/Xcode/PrivatePlugIns/IDEOSXSupportCore.ideplugin/Contents/Resources/MacOSX Architectures.xcspec|g' XcodeLegacy.sh
+```
+
+Install the legacy components:
+
+```bash
+sudo ./XcodeLegacy.sh -path=/Applications/Xcode.app -compilers -osx105 -osx107 install
+```
+
+~~Once Xcode Legacy components have been installed, the application can simply be built and run in Xcode.~~ Xcode 12 cannot load XcodeLegacy's old GCC compiler plug-ins. After installation, move those plug-ins out of Xcode; the GCC 4.2 executable remains available and the project invokes it directly for the Release target:
+
+```bash
+sudo mkdir -p '/Users/YOUR_USERNAME/Downloads/XcodeLegacy-disabled-plugins'
+sudo mv '/Applications/Xcode.app/Contents/PlugIns/Xcode3Core.ideplugin/Contents/SharedSupport/Developer/Library/Xcode/Plug-ins/GCC 4.0.xcplugin' '/Users/YOUR_USERNAME/Downloads/XcodeLegacy-disabled-plugins/'
+sudo mv '/Applications/Xcode.app/Contents/PlugIns/Xcode3Core.ideplugin/Contents/SharedSupport/Developer/Library/Xcode/Plug-ins/GCC 4.2.xcplugin' '/Users/YOUR_USERNAME/Downloads/XcodeLegacy-disabled-plugins/'
+sudo mv '/Applications/Xcode.app/Contents/PlugIns/Xcode3Core.ideplugin/Contents/SharedSupport/Developer/Library/Xcode/Plug-ins/LLVM GCC 4.2.xcplugin' '/Users/YOUR_USERNAME/Downloads/XcodeLegacy-disabled-plugins/'
+```
+
+If one of the move commands says `No such file or directory`, that plug-in was already absent and can be ignored.
+
+Restart Xcode, open `Discord Lite.xcodeproj`, select the **Release** build configuration, choose **Product > Clean Build Folder**, then build. The Release configuration calls `gcc-4.2`/`g++-4.2`, uses the 10.5 SDK for PowerPC and the 10.7 SDK for i386, and uses DWARF debug information because modern `dsymutil` cannot process PowerPC binaries.
 
 **Note:** In order to compile a working Intel 64-bit binary for OS X 10.5 Leopard, you must either build with the 10.5 SDK itself, or use the CoreFoundation and Foundation framework binaries from the 10.5 SDK in a later SDK.
