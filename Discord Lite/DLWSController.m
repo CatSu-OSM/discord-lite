@@ -870,8 +870,15 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
 
 -(void)voiceUDPPacketReceived:(NSData *)packet {
     if (voiceSelfDeafened || !voiceMedia || [packet length] < 12) return;
-    voicePacketsReceived++;
     const unsigned char *bytes = [packet bytes];
+    // The UDP socket also receives RTCP/control traffic. Only Discord's Opus
+    // RTP payload (type 120, with an optional marker bit) uses the negotiated
+    // AEAD transport key; attempting to decrypt control packets looks like an
+    // authentication failure whenever another participant becomes active.
+    if ((bytes[1] & 0x7f) != 0x78) {
+        return;
+    }
+    voicePacketsReceived++;
     uint32_t networkSSRC = 0;
     memcpy(&networkSSRC, bytes + 8, sizeof(networkSSRC));
     NSString *ssrcKey = [NSString stringWithFormat:@"%u", ntohl(networkSSRC)];
