@@ -25,14 +25,12 @@
     CGFloat latestMessageScrollStartY;
     CGFloat latestMessageScrollTargetY;
     BOOL scrollWheelEnabled;
-    BOOL historyLoadRequested;
 }
 
 -(NSArray *)content;
 
 -(void)setDelegate:(id<ChatScrollViewDelegate>)inDelegate;
 -(void)setScrollWheelEnabled:(BOOL)enabled;
--(BOOL)consumeHistoryLoadRequest;
 -(void)setContent:(NSArray *)inContent;
 -(void)appendContent:(NSArray *)inContent;
 -(void)prependViewController:(ChatItemViewController *)vc;

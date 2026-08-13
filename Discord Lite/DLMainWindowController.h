@@ -73,6 +73,7 @@ typedef enum {
     IBOutlet NSTextField *serverLabel;
     IBOutlet NSImageView *chatHeaderImage;
     IBOutlet NSTextField *chatHeaderLabel;
+    NSTextField *historyLoadingLabel;
     IBOutlet HorizontalDynamicScrollView *pendingAttachmentsScrollView;
     IBOutlet NSTextField *typingStatusTextField;
     NSView_BGColor *voicePanelView;
