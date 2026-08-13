@@ -146,6 +146,7 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     [NSThread detachNewThreadSelector:@selector(startWebSocketThread) toTarget:self withObject:nil];
 }
 -(void)stop {
+    voiceGeneration++;
     if (heartbeatTimer) {
         [heartbeatTimer invalidate];
         heartbeatTimer = nil;
@@ -253,6 +254,9 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
         return;
     }
 
+    // Prevent an old gateway thread from clearing handles or status belonging
+    // to this fresh join after its asynchronous shutdown completes.
+    voiceGeneration++;
     // Credentials are per join. Never reuse a voice token/session from a
     // previous channel, even when Discord returns the same endpoint.
     [pendingVoiceGuildID release];
@@ -383,11 +387,17 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
                                          sessionID:pendingVoiceSessionID endpoint:pendingVoiceEndpoint
                                             token:pendingVoiceToken userID:userID];
     }
-    [NSThread detachNewThreadSelector:@selector(startVoiceWebSocketThread) toTarget:self withObject:nil];
+    [NSThread detachNewThreadSelector:@selector(startVoiceWebSocketThread:) toTarget:self
+                           withObject:[NSNumber numberWithUnsignedInteger:voiceGeneration]];
 }
 
--(void)startVoiceWebSocketThread {
+-(void)startVoiceWebSocketThread:(NSNumber *)generationNumber {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+    NSUInteger generation = [generationNumber unsignedIntegerValue];
+    if (generation != voiceGeneration) {
+        [pool release];
+        return;
+    }
     // A server voice channel is one DAVE media session, so its snowflake is
     // the group identifier shared by every member of that session.
     NSString *helperError = nil;
@@ -398,24 +408,27 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
         NSLog(@"DAVE disabled for this voice connection: %@", helperError);
     }
     NSString *voiceURL = [NSString stringWithFormat:@"wss://%@/?v=8", pendingVoiceEndpoint];
-    voiceWebSocketHandle = curl_easy_init();
-    if (voiceWebSocketHandle) {
-        curl_easy_setopt(voiceWebSocketHandle, CURLOPT_URL, [voiceURL UTF8String]);
-        curl_easy_setopt(voiceWebSocketHandle, CURLOPT_SSL_VERIFYPEER, 0L);
-        curl_easy_setopt(voiceWebSocketHandle, CURLOPT_USERAGENT, [[DLUtil userAgentString] UTF8String]);
-        curl_easy_setopt(voiceWebSocketHandle, CURLOPT_WRITEFUNCTION, voicewritecb);
-        curl_easy_setopt(voiceWebSocketHandle, CURLOPT_WRITEDATA, voiceWebSocketHandle);
-        CURLcode result = curl_easy_perform(voiceWebSocketHandle);
+    CURL *easy = curl_easy_init();
+    if (easy) {
+        voiceWebSocketHandle = easy;
+        curl_easy_setopt(easy, CURLOPT_URL, [voiceURL UTF8String]);
+        curl_easy_setopt(easy, CURLOPT_SSL_VERIFYPEER, 0L);
+        curl_easy_setopt(easy, CURLOPT_USERAGENT, [[DLUtil userAgentString] UTF8String]);
+        curl_easy_setopt(easy, CURLOPT_WRITEFUNCTION, voicewritecb);
+        curl_easy_setopt(easy, CURLOPT_WRITEDATA, easy);
+        CURLcode result = curl_easy_perform(easy);
         if (result != CURLE_OK) {
             NSString *message = [NSString stringWithFormat:@"Voice gateway closed: %s", curl_easy_strerror(result)];
             DLVoiceSetError(&voiceLastError, message);
             NSLog(@"%@", message);
         }
-        curl_easy_cleanup(voiceWebSocketHandle);
-        voiceWebSocketHandle = nil;
+        curl_easy_cleanup(easy);
+        if (generation == voiceGeneration && voiceWebSocketHandle == easy) voiceWebSocketHandle = nil;
     }
-    voiceConnectionStarting = NO;
-    if (!voiceLastError) DLVoiceSetStatus(&voiceConnectionStatus, @"Voice gateway disconnected.");
+    if (generation == voiceGeneration) {
+        voiceConnectionStarting = NO;
+        if (!voiceLastError) DLVoiceSetStatus(&voiceConnectionStatus, @"Voice gateway disconnected.");
+    }
     [pool release];
 }
 
@@ -614,7 +627,8 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
         voiceSSRC = [[data objectForKey:@"ssrc"] unsignedIntValue];
         [voiceEncryptionModes release];
         voiceEncryptionModes = [[data objectForKey:@"modes"] retain];
-        [NSThread detachNewThreadSelector:@selector(startVoiceUDPDiscoveryThread) toTarget:self withObject:nil];
+        [NSThread detachNewThreadSelector:@selector(startVoiceUDPDiscoveryThread:) toTarget:self
+                               withObject:[NSNumber numberWithUnsignedInteger:voiceGeneration]];
     } else if (opcode == 4) {
         DLVoiceSetStatus(&voiceConnectionStatus, @"Voice transport ready; negotiating DAVE…");
         NSData *transportKey = DLDataFromByteArray([data objectForKey:@"secret_key"]);
@@ -694,14 +708,25 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
     if (error) NSLog(@"DAVE binary opcode %d failed: %@", opcode, error);
 }
 
--(void)startVoiceUDPDiscoveryThread {
+-(void)voiceUDPDiscoveryFailed:(NSString *)message {
+    DLVoiceSetError(&voiceLastError, message);
+    DLVoiceSetStatus(&voiceConnectionStatus, message);
+}
+
+-(void)startVoiceUDPDiscoveryThread:(NSNumber *)generationNumber {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+    NSUInteger generation = [generationNumber unsignedIntegerValue];
+    if (generation != voiceGeneration) {
+        [pool release];
+        return;
+    }
     struct sockaddr_in serverAddress;
     memset(&serverAddress, 0, sizeof(serverAddress));
     serverAddress.sin_family = AF_INET;
     serverAddress.sin_port = htons((uint16_t)voiceServerPort);
     if (!voiceServerIP || inet_aton([voiceServerIP UTF8String], &serverAddress.sin_addr) == 0) {
         NSLog(@"Voice UDP discovery received an invalid server address.");
+        [self performSelectorOnMainThread:@selector(voiceUDPDiscoveryFailed:) withObject:@"Voice server supplied an invalid UDP address." waitUntilDone:NO];
         [pool release];
         return;
     }
@@ -709,6 +734,7 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
     int socketFD = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (socketFD < 0) {
         NSLog(@"Unable to create the voice UDP socket.");
+        [self performSelectorOnMainThread:@selector(voiceUDPDiscoveryFailed:) withObject:@"Could not open a UDP socket for voice." waitUntilDone:NO];
         [pool release];
         return;
     }
@@ -728,6 +754,7 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
     memcpy(request + 4, &ssrc, sizeof(ssrc));
     if (sendto(socketFD, request, sizeof(request), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0) {
         NSLog(@"Voice UDP discovery request failed.");
+        [self performSelectorOnMainThread:@selector(voiceUDPDiscoveryFailed:) withObject:@"Voice UDP discovery could not send." waitUntilDone:NO];
         close(socketFD);
         if (voiceUDPSocket == socketFD) voiceUDPSocket = -1;
         [pool release];
@@ -736,8 +763,14 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
 
     unsigned char response[70];
     ssize_t responseLength = recvfrom(socketFD, response, sizeof(response), 0, NULL, NULL);
+    if (generation != voiceGeneration) {
+        close(socketFD);
+        [pool release];
+        return;
+    }
     if (responseLength < 70) {
         NSLog(@"Voice UDP discovery did not receive a valid response.");
+        [self performSelectorOnMainThread:@selector(voiceUDPDiscoveryFailed:) withObject:@"Voice UDP discovery timed out. Check this Mac's outbound UDP access." waitUntilDone:NO];
         close(socketFD);
         if (voiceUDPSocket == socketFD) voiceUDPSocket = -1;
         [pool release];
@@ -756,8 +789,10 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
     NSString *mode = @"aead_xchacha20_poly1305_rtpsize";
     if (![voiceEncryptionModes containsObject:mode]) {
         NSLog(@"Voice server did not offer the required modern XChaCha20 mode.");
+        DLVoiceSetError(&voiceLastError, @"Voice server does not support XChaCha20 RTP.");
         return;
     }
+    DLVoiceSetStatus(&voiceConnectionStatus, @"UDP media path ready; selecting encryption…");
     NSDictionary *udp = [NSDictionary dictionaryWithObjectsAndKeys:[result objectForKey:@"address"], @"address",
                          [result objectForKey:@"port"], @"port", mode, @"mode", nil];
     NSDictionary *data = [NSDictionary dictionaryWithObjectsAndKeys:@"udp", @"protocol", udp, @"data", nil];
