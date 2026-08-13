@@ -546,9 +546,10 @@ static NSComparisonResult memberListRoleSort(id a, id b, void *context);
     chatHeaderFullFrame = [chatViewHeader frame];
     messageEntryContainerFullFrame = [messageEntryContainerView frame];
     if (memberListVisible) {
-        chatScrollViewFullFrame.size.width += MEMBER_LIST_WIDTH;
-        chatHeaderFullFrame.size.width += MEMBER_LIST_WIDTH;
-        messageEntryContainerFullFrame.size.width += MEMBER_LIST_WIDTH;
+        CGFloat contentRight = NSMaxX([[self.window contentView] bounds]);
+        chatScrollViewFullFrame.size.width = contentRight - chatScrollViewFullFrame.origin.x;
+        chatHeaderFullFrame.size.width = contentRight - chatHeaderFullFrame.origin.x;
+        messageEntryContainerFullFrame.size.width = contentRight - messageEntryContainerFullFrame.origin.x;
     }
 }
 
@@ -568,7 +569,8 @@ static NSComparisonResult memberListRoleSort(id a, id b, void *context);
     [messageEntryContainerView setFrame:entryFrame];
     [self layoutEmojiButton];
 
-    NSRect panelFrame = NSMakeRect(NSMaxX(chatScrollViewFullFrame) - MEMBER_LIST_WIDTH,
+    CGFloat contentRight = NSMaxX([[self.window contentView] bounds]);
+    NSRect panelFrame = NSMakeRect(contentRight - MEMBER_LIST_WIDTH,
                                    entryFrame.origin.y,
                                    MEMBER_LIST_WIDTH,
                                    NSMaxY(headerFrame) - entryFrame.origin.y);

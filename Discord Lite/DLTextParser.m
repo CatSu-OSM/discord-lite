@@ -12,6 +12,10 @@
 
 NSString * const DLEmojiImageDidUpdateNotification = @"DLEmojiImageDidUpdateNotification";
 
+@interface DLTextParser (EmojiRequest)
++(void)emojiImageRequestDidFinishForURL:(NSString *)url data:(NSData *)data;
+@end
+
 @interface DLEmojiAttachmentCell : NSTextAttachmentCell
 @end
 
@@ -70,7 +74,7 @@ NSString * const DLEmojiImageDidUpdateNotification = @"DLEmojiImageDidUpdateNoti
 }
 
 -(void)requestDidFinishLoading:(AsyncHTTPRequest *)finishedRequest {
-    [DLTextParser emojiImageRequestDidFinishForURL:urlString];
+    [DLTextParser emojiImageRequestDidFinishForURL:urlString data:[finishedRequest responseData]];
     if ([finishedRequest result] == HTTPResultOK && [[finishedRequest responseData] length] > 0) {
         if ([NSThread isMainThread]) {
             [[NSNotificationCenter defaultCenter] postNotificationName:DLEmojiImageDidUpdateNotification object:assetName];
@@ -247,6 +251,14 @@ const CGFloat MESSAGE_VIEW_FONT_SIZE = 13.0;
     return pendingRequests;
 }
 
++(NSMutableDictionary *)emojiImageDataCache {
+    static NSMutableDictionary *cache = nil;
+    if (!cache) {
+        cache = [[NSMutableDictionary alloc] init];
+    }
+    return cache;
+}
+
 +(BOOL)dataHasPNGSignature:(NSData *)data {
     if (![data isKindOfClass:[NSData class]] || [data length] < 8) {
         return NO;
@@ -257,6 +269,9 @@ const CGFloat MESSAGE_VIEW_FONT_SIZE = 13.0;
 
 +(NSImage *)cachedEmojiImageForURL:(NSString *)url assetName:(NSString *)assetName size:(CGFloat)size cache:(NSMutableDictionary *)cache {
     NSData *data = [[HTTPCache sharedInstance] cachedDataForURL:url];
+    if (![self dataHasPNGSignature:data]) {
+        data = [[self emojiImageDataCache] objectForKey:url];
+    }
     if (![self dataHasPNGSignature:data]) {
         return nil;
     }
@@ -280,9 +295,15 @@ const CGFloat MESSAGE_VIEW_FONT_SIZE = 13.0;
     [request start];
 }
 
-+(void)emojiImageRequestDidFinishForURL:(NSString *)url {
++(void)emojiImageRequestDidFinishForURL:(NSString *)url data:(NSData *)data {
     if (url) {
         [[self pendingEmojiImageRequests] removeObject:url];
+        // AsyncHTTPGetRequest can call its delegate before its cache write is
+        // observable.  Make the image available before notifying text views;
+        // otherwise their synchronous redraw starts the same request again.
+        if ([self dataHasPNGSignature:data]) {
+            [[self emojiImageDataCache] setObject:data forKey:url];
+        }
     }
 }
 
