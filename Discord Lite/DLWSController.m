@@ -18,8 +18,9 @@
 @implementation DLWSController
 
 static NSMutableData* receivedWSData;
-static NSMutableData* receivedVoiceWSData;
-static BOOL receivedVoiceWSIsBinary;
+static NSMutableDictionary* receivedVoiceWSDataByHandle;
+static NSMutableDictionary* receivedVoiceWSBinaryByHandle;
+static NSMutableDictionary* voiceWebSocketGenerationsByHandle;
 
 static DLWSController* sharedObject = nil;
 
@@ -394,22 +395,44 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
 }
 
 static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
-    if (!receivedVoiceWSData) {
-        receivedVoiceWSData = [[NSMutableData alloc] init];
-        const struct curl_ws_frame *firstFrame = curl_ws_meta((CURL *)p);
-        receivedVoiceWSIsBinary = (firstFrame->flags & CURLWS_BINARY) != 0;
-    }
     CURL *easy = p;
     const struct curl_ws_frame *frame = curl_ws_meta(easy);
-    [receivedVoiceWSData appendBytes:b length:nitems * size];
-    if (frame->bytesleft < 1) {
-        NSData *voiceData = [NSData dataWithData:receivedVoiceWSData];
-        SEL selector = receivedVoiceWSIsBinary ? @selector(voiceWSBinaryDataReceived:) : @selector(voiceWSTextDataReceived:);
-        [[DLWSController sharedInstance] performSelectorOnMainThread:selector withObject:voiceData waitUntilDone:YES];
-        [receivedVoiceWSData release];
-        receivedVoiceWSData = nil;
+    NSValue *handleKey = [NSValue valueWithPointer:easy];
+    NSDictionary *completedFrame = nil;
+    @synchronized([DLWSController class]) {
+        if (!receivedVoiceWSDataByHandle) {
+            receivedVoiceWSDataByHandle = [[NSMutableDictionary alloc] init];
+            receivedVoiceWSBinaryByHandle = [[NSMutableDictionary alloc] init];
+            voiceWebSocketGenerationsByHandle = [[NSMutableDictionary alloc] init];
+        }
+        NSMutableData *receivedData = [receivedVoiceWSDataByHandle objectForKey:handleKey];
+        if (!receivedData) {
+            receivedData = [NSMutableData data];
+            [receivedVoiceWSDataByHandle setObject:receivedData forKey:handleKey];
+            [receivedVoiceWSBinaryByHandle setObject:[NSNumber numberWithBool:(frame->flags & CURLWS_BINARY) != 0] forKey:handleKey];
+        }
+        [receivedData appendBytes:b length:nitems * size];
+        if (frame->bytesleft < 1) {
+            NSNumber *generation = [voiceWebSocketGenerationsByHandle objectForKey:handleKey];
+            completedFrame = [[NSDictionary alloc] initWithObjectsAndKeys:
+                              [NSData dataWithData:receivedData], @"data",
+                              [receivedVoiceWSBinaryByHandle objectForKey:handleKey], @"binary",
+                              generation ? generation : [NSNumber numberWithInt:0], @"generation", nil];
+            [receivedVoiceWSDataByHandle removeObjectForKey:handleKey];
+            [receivedVoiceWSBinaryByHandle removeObjectForKey:handleKey];
+        }
+    }
+    if (completedFrame) {
+        [[DLWSController sharedInstance] performSelectorOnMainThread:@selector(voiceWSFrameReceived:) withObject:completedFrame waitUntilDone:YES];
+        [completedFrame release];
     }
     return nitems;
+}
+
+-(void)voiceWSFrameReceived:(NSDictionary *)frame {
+    if ([[frame objectForKey:@"generation"] unsignedIntegerValue] != voiceGeneration) return;
+    SEL selector = [[frame objectForKey:@"binary"] boolValue] ? @selector(voiceWSBinaryDataReceived:) : @selector(voiceWSTextDataReceived:);
+    [self performSelector:selector withObject:[frame objectForKey:@"data"]];
 }
 
 -(void)notifyVoiceConnectionIfReady {
@@ -451,6 +474,15 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
     NSString *voiceURL = [NSString stringWithFormat:@"wss://%@/?v=8", pendingVoiceEndpoint];
     CURL *easy = curl_easy_init();
     if (easy) {
+        NSValue *handleKey = [NSValue valueWithPointer:easy];
+        @synchronized([DLWSController class]) {
+            if (!voiceWebSocketGenerationsByHandle) {
+                receivedVoiceWSDataByHandle = [[NSMutableDictionary alloc] init];
+                receivedVoiceWSBinaryByHandle = [[NSMutableDictionary alloc] init];
+                voiceWebSocketGenerationsByHandle = [[NSMutableDictionary alloc] init];
+            }
+            [voiceWebSocketGenerationsByHandle setObject:[NSNumber numberWithUnsignedInteger:generation] forKey:handleKey];
+        }
         voiceWebSocketHandle = easy;
         curl_easy_setopt(easy, CURLOPT_URL, [voiceURL UTF8String]);
         curl_easy_setopt(easy, CURLOPT_SSL_VERIFYPEER, 0L);
@@ -462,6 +494,11 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
             NSString *message = [NSString stringWithFormat:@"Voice gateway closed: %s", curl_easy_strerror(result)];
             DLVoiceSetError(&voiceLastError, message);
             NSLog(@"%@", message);
+        }
+        @synchronized([DLWSController class]) {
+            [receivedVoiceWSDataByHandle removeObjectForKey:handleKey];
+            [receivedVoiceWSBinaryByHandle removeObjectForKey:handleKey];
+            [voiceWebSocketGenerationsByHandle removeObjectForKey:handleKey];
         }
         curl_easy_cleanup(easy);
         if (generation == voiceGeneration && voiceWebSocketHandle == easy) voiceWebSocketHandle = nil;
