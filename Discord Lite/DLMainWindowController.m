@@ -1000,6 +1000,10 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
         [historyLoadingLabel setAlignment:NSRightTextAlignment];
         [historyLoadingLabel setHidden:YES];
         [chatViewHeader addSubview:historyLoadingLabel];
+        historyLoadingSpinner = [[NSProgressIndicator alloc] initWithFrame:NSMakeRect(188, 4, 16, 16)];
+        [historyLoadingSpinner setStyle:NSProgressIndicatorSpinningStyle];
+        [historyLoadingSpinner setDisplayedWhenStopped:NO];
+        [chatViewHeader addSubview:historyLoadingSpinner];
 
         voicePanelView = [[NSView_BGColor alloc] initWithFrame:[chatScrollView frame]];
         [voicePanelView setBackgroundColor:[NSColor colorWithCalibratedRed:37.0/255.0 green:38.0/255.0 blue:42.0/255.0 alpha:1.0]];
@@ -1767,25 +1771,23 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
 }
 
 -(void)chatScrollViewBoundsDidChange:(NSNotification *)note {
-    NSClipView *scrolledClipView = [note object];
-    if ([chatScrollView.documentView bounds].size.height <= [scrolledClipView bounds].size.height + [scrolledClipView bounds].origin.y) {
-        // Message rows can receive scroll-wheel events before the scroll view
-        // does.  NSApp's current event reliably identifies the user gesture at
-        // the clip view, while programmatic layout changes have another type.
-        NSEvent *event = [NSApp currentEvent];
-        if (!isLoadingMessages && event && [event type] == NSScrollWheel) {
-            isLoadingMessages = YES;
-            [historyLoadingLabel setHidden:NO];
-            if ([[DLController sharedInstance] selectedChannel]) {
-                [[DLController sharedInstance] loadMessagesForChannel:[[DLController sharedInstance] selectedChannel] beforeMessage:lastMessage quantity:25];
-            }
-        }
+}
+
+-(void)chatScrollViewDidReachHistoryEdge {
+    DLChannel *selectedChannel = [[DLController sharedInstance] selectedChannel];
+    if (isLoadingMessages || !selectedChannel) {
+        return;
     }
+    isLoadingMessages = YES;
+    [historyLoadingLabel setHidden:NO];
+    [historyLoadingSpinner startAnimation:nil];
+    [[DLController sharedInstance] loadMessagesForChannel:selectedChannel beforeMessage:lastMessage quantity:25];
 }
 
 -(void)chatScrollViewDidFinishAppendingContent {
     isLoadingMessages = NO;
     [historyLoadingLabel setHidden:YES];
+    [historyLoadingSpinner stopAnimation:nil];
 }
 
 -(void)serversScrollViewBoundsDidChange:(NSNotification *)note {
@@ -2016,6 +2018,7 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
     if (newChannel) {
         isLoadingMessages = NO;
         [historyLoadingLabel setHidden:YES];
+        [historyLoadingSpinner stopAnimation:nil];
     }
 }
 

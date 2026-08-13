@@ -14,6 +14,7 @@
 @optional
 -(void)updatePendingAttachmentsWithFilePaths:(NSArray *)paths;
 -(void)chatScrollViewDidFinishAppendingContent;
+-(void)chatScrollViewDidReachHistoryEdge;
 @end
 
 @interface ChatScrollView : NSScrollView {

@@ -157,6 +157,16 @@
     }
     keepsNewestMessageVisible = NO;
     [super scrollWheel:theEvent];
+
+    // Only request history after this user gesture has actually reached the
+    // history edge. Bounds-change notifications also occur during layout and
+    // would otherwise preload messages while the user is still reading.
+    NSRect visibleBounds = [[self contentView] bounds];
+    CGFloat documentHeight = [[self documentView] bounds].size.height;
+    if (visibleBounds.origin.y + visibleBounds.size.height >= documentHeight - 0.5f &&
+        [delegate respondsToSelector:@selector(chatScrollViewDidReachHistoryEdge)]) {
+        [delegate chatScrollViewDidReachHistoryEdge];
+    }
 }
 
 -(void)contentAppendDidFinish {
