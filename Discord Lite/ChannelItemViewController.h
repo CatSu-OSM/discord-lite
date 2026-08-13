@@ -33,6 +33,7 @@ typedef enum {
     DLChannel *representedObject;
     IBOutlet NSTextField *childChannelLabel;
     IBOutlet NSTextField *parentChannelLabel;
+    NSImageView *channelImageView;
     id<ChannelItemDelegate> delegate;
     IBOutlet BadgeTextField *mentionBadgeLabel;
     IBOutlet ServerStatusIndicatorView *statusIndicatorView;

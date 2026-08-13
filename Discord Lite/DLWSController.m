@@ -160,6 +160,29 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     [self sendWSTextData:str];
 }
 
+-(void)joinVoiceChannel:(DLChannel *)c inServer:(DLServer *)s {
+    if (!c || !s || [c type] != ChannelTypeVoice) {
+        return;
+    }
+
+    // Discord uses a gateway Voice State Update to join (or move between) voice channels.
+    // The media connection is negotiated separately after the gateway confirms this state.
+    NSMutableDictionary *data = [[NSMutableDictionary alloc] init];
+    [data setObject:[s serverID] forKey:@"guild_id"];
+    [data setObject:[c channelID] forKey:@"channel_id"];
+    [data setObject:[NSNumber numberWithBool:NO] forKey:@"self_mute"];
+    [data setObject:[NSNumber numberWithBool:NO] forKey:@"self_deaf"];
+
+    NSMutableDictionary *request = [[NSMutableDictionary alloc] init];
+    [request setObject:[NSNumber numberWithInt:OPCodeVoiceStateUpdate] forKey:@kWSOperation];
+    [request setObject:data forKey:@kWSData];
+    NSData *payload = [[CJSONSerializer serializer] serializeDictionary:request error:nil];
+    [self sendWSTextData:payload];
+
+    [request release];
+    [data release];
+}
+
 -(void)queryServer:(DLServer *)s forMembersContainingUsername:(NSString *)username {
     NSMutableDictionary *data = [[NSMutableDictionary alloc] init];
     [data setObject:[NSArray arrayWithObject:[s serverID]] forKey:@"guild_id"];

@@ -1101,7 +1101,7 @@
 					"$(PROJECT_DIR)",
 				);
 				LINK_WITH_STANDARD_LIBRARIES = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.4;
+				MACOSX_DEPLOYMENT_TARGET = 10.6;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 			};
@@ -1114,7 +1114,6 @@
 				ARCHS = (
 					x86_64,
 					i386,
-					ppc,
 				);
 				CLANG_ENABLE_MODULES = NO;
 				CLANG_ENABLE_OBJC_ARC = NO;
@@ -1125,7 +1124,6 @@
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				FRAMEWORK_SEARCH_PATHS = "";
 				"FRAMEWORK_SEARCH_PATHS[arch=i386]" = "$(DEVELOPER_DIR)/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.7.sdk/System/Library/Frameworks";
-				"FRAMEWORK_SEARCH_PATHS[arch=ppc]" = "$(DEVELOPER_DIR)/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.5.sdk/System/Library/Frameworks";
 				"FRAMEWORK_SEARCH_PATHS[arch=x86_64]" = "";
 				INFOPLIST_FILE = "Discord Lite/Info.plist";
 				LD_DEPENDENCY_INFO_FILE = "$(OBJECT_FILE_DIR_$(CURRENT_VARIANT))/$(CURRENT_ARCH)/$(PRODUCT_NAME)_dependency_info.dat";
@@ -1138,19 +1136,14 @@
 					"$(PROJECT_DIR)/Discord\\ Lite",
 					"$(DEVELOPER_DIR)/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.7.sdk/usr/lib",
 				);
-				"LIBRARY_SEARCH_PATHS[arch=ppc]" = (
-					"$(PROJECT_DIR)/Discord\\ Lite",
-					"$(DEVELOPER_DIR)/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.5.sdk/usr/lib",
-				);
 				"LIBRARY_SEARCH_PATHS[arch=x86_64]" = (
 					"$(PROJECT_DIR)/Discord\\ Lite",
 				);
 				LINK_WITH_STANDARD_LIBRARIES = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.4;
+				MACOSX_DEPLOYMENT_TARGET = 10.6;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				"SDKROOT[arch=i386]" = macosx10.7;
-				"SDKROOT[arch=ppc]" = macosx10.5;
 				"SDKROOT[arch=x86_64]" = macosx;
 			};
 			name = Release;

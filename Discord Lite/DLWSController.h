@@ -28,6 +28,7 @@ typedef enum {
     OPCodeGeneral = 0,
     OPCodeHeartbeat = 1,
     OPCodeIdentify = 2,
+    OPCodeVoiceStateUpdate = 4,
     OPCodeResume = 6,
     OPCodeQueryServerMembers = 8,
     OPCodeHello = 10,
@@ -75,6 +76,7 @@ typedef enum {
 
 -(void)updateWSForDirectMessageChannel:(DLChannel *)c;
 -(void)updateWSForChannel:(DLChannel *)c inServer:(DLServer *)s;
+-(void)joinVoiceChannel:(DLChannel *)c inServer:(DLServer *)s;
 
 -(void)queryServer:(DLServer *)s forMembersContainingUsername:(NSString *)username;
 

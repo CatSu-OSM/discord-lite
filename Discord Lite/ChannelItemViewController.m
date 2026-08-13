@@ -9,6 +9,32 @@
 #import "ChannelItemViewController.h"
 #import "RoundedTextFieldCell.h"
 
+static NSImage *DLVoiceChannelImage(void) {
+    static NSImage *voiceImage = nil;
+    if (!voiceImage) {
+        voiceImage = [[NSImage alloc] initWithSize:NSMakeSize(16, 16)];
+        [voiceImage lockFocus];
+        [[NSColor colorWithCalibratedRed:131.0/255.0 green:134.0/255.0 blue:139.0/255.0 alpha:1.0] set];
+
+        NSBezierPath *speaker = [NSBezierPath bezierPath];
+        [speaker moveToPoint:NSMakePoint(1, 6)];
+        [speaker lineToPoint:NSMakePoint(4, 6)];
+        [speaker lineToPoint:NSMakePoint(8, 2)];
+        [speaker lineToPoint:NSMakePoint(8, 14)];
+        [speaker lineToPoint:NSMakePoint(4, 10)];
+        [speaker lineToPoint:NSMakePoint(1, 10)];
+        [speaker closePath];
+        [speaker fill];
+
+        NSBezierPath *soundWave = [NSBezierPath bezierPath];
+        [soundWave setLineWidth:1.5];
+        [soundWave appendBezierPathWithArcWithCenter:NSMakePoint(8, 8) radius:4 startAngle:-55 endAngle:55 clockwise:NO];
+        [soundWave stroke];
+        [voiceImage unlockFocus];
+    }
+    return voiceImage;
+}
+
 @implementation ChannelItemViewController
 
 -(id)init {
@@ -34,12 +60,11 @@
         [defaultView addSubview:statusIndicatorView];
         [statusIndicatorView release];
 
-        NSImageView *channelImageView = [[NSImageView alloc] initWithFrame:NSMakeRect(15, 2, 21, 20)];
+        channelImageView = [[NSImageView alloc] initWithFrame:NSMakeRect(15, 2, 21, 20)];
         [channelImageView setAutoresizingMask:NSViewMaxXMargin | NSViewMinYMargin];
         [channelImageView setImageScaling:NSImageScaleProportionallyDown];
         [channelImageView setImage:[NSImage imageNamed:@"uI4"]];
         [defaultView addSubview:channelImageView];
-        [channelImageView release];
 
         mentionBadgeLabel = [[BadgeTextField alloc] initWithFrame:NSMakeRect(29, 1, 11, 11)];
         RoundedTextFieldCell *mentionCell = [[RoundedTextFieldCell alloc] initTextCell:@"1"];
@@ -106,6 +131,11 @@
         [parentChannelLabel setStringValue:[(DLServerChannel *)representedObject name]];
     } else {
         [childChannelLabel setStringValue:[(DLServerChannel *)representedObject name]];
+        if ([representedObject type] == ChannelTypeVoice) {
+            [channelImageView setImage:DLVoiceChannelImage()];
+        } else {
+            [channelImageView setImage:[NSImage imageNamed:@"uI4"]];
+        }
     }
     [self updateMentionsLabel];
     [self updateUnreadStatus];
@@ -176,6 +206,7 @@
     [headerView release];
     [dmView setDelegate:nil];
     [dmView release];
+    [channelImageView release];
     [super dealloc];
 }
 

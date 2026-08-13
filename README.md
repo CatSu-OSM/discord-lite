@@ -2,7 +2,7 @@
 
 An ultra-lightweight native Discord client for vintage and modern Macs.
 
-This repository is the **CatSu-OSM fork** of [dosdude1/discord-lite](https://github.com/dosdude1/discord-lite). Its `master` branch contains compatibility work for building the client as a 32-bit Intel / PowerPC application with **Xcode 4.6.3 on OS X 10.7 Lion**. It is not intended to be proposed back to the upstream project.
+This repository is the **CatSu-OSM fork** of [dosdude1/discord-lite](https://github.com/dosdude1/discord-lite). Its `master` branch contains compatibility work for building the client as an Intel application with **Xcode 4.6.3 on OS X 10.7 Lion**. It is not intended to be proposed back to the upstream project.
 
 ## What changed in this fork
 
@@ -20,11 +20,11 @@ This removes the Xcode 4 error:
 
 ## Requirements for legacy builds
 
-- An **Intel Mac** running **OS X 10.7 Lion**.
+- An **Intel Mac** running **OS X 10.6.8 Snow Leopard or later** to run the app. The build host remains OS X 10.7 Lion because it needs Xcode 4.6.3.
 - **Xcode 4.6.3**.
-- XcodeLegacy’s legacy compilers and the **Mac OS X 10.5** and **10.7 SDK** packages for PowerPC/older-Intel targets.
+- XcodeLegacy’s legacy compilers and the **Mac OS X 10.7 SDK** package for the 32-bit Intel build.
 
-~~Use a modern Xcode version to compile the 32-bit build.~~ Modern Xcode versions reject `i386`; they cannot produce this project’s 32-bit Intel build. Apple Silicon Macs also cannot create PowerPC or 32-bit Intel binaries.
+~~Use a modern Xcode version to compile the 32-bit build.~~ Modern Xcode versions reject `i386`; they cannot produce this project’s 32-bit Intel build. Apple Silicon Macs also cannot create 32-bit Intel binaries.
 
 ## Build on Lion / Xcode 4.6.3
 
@@ -35,17 +35,17 @@ This removes the Xcode 4 error:
 3. Install XcodeLegacy with the legacy compiler and SDK packages. XcodeLegacy needs the Xcode 3.2.6 and Xcode 4.6.3 installer images available locally to build its packages. From the XcodeLegacy directory:
 
    ```sh
-   sudo ./XcodeLegacy.sh -compilers -osx105 -osx107 buildpackages
-   sudo ./XcodeLegacy.sh -path=/Applications/Xcode.app -compilers -osx105 -osx107 install
+   sudo ./XcodeLegacy.sh -compilers -osx107 buildpackages
+   sudo ./XcodeLegacy.sh -path=/Applications/Xcode.app -compilers -osx107 install
    ```
 
 4. Open `Discord Lite.xcodeproj` in Xcode 4.6.3.
 
-5. Select the **Discord Lite** target and choose the required architecture:
+5. Select the **Discord Lite** target and choose the required Intel architecture:
 
    - `i386` for 32-bit Intel Macs.
-   - `ppc` for PowerPC Macs.
-   - A universal configuration only when every selected architecture and SDK is installed.
+   - `x86_64` for 64-bit Intel Macs.
+   - A universal Intel configuration includes both slices.
 
 6. Build and run with **Product → Build** or the Run button.
 
@@ -53,11 +53,10 @@ The project’s interface is code-built, so no XIB conversion or newer Interface
 
 ## Minimum target
 
-- Mac OS X 10.4 Tiger
-- PowerPC G3 or Intel processor
+- Mac OS X 10.6.8 Snow Leopard on Intel (`i386` or `x86_64`)
 - 256 MB RAM
 
-The available features depend on Discord’s current API behavior and the target operating system. CAPTCHA support requires OS X 10.5 or later.
+The available features depend on Discord’s current API behavior and the target operating system. The planned voice dependency binaries must also be compiled with the same 10.6 Intel deployment target.
 
 ## Current functional state
 
@@ -71,7 +70,7 @@ The available features depend on Discord’s current API behavior and the target
 
 ### Not implemented
 
-- Voice and video chat
+- Voice audio streaming and video chat (selecting a voice channel sends the Discord join request, but media transport is not yet implemented)
 - Message web embeds
 - Friend requests
 

@@ -823,11 +823,24 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
             [itm setSelected:NO];
         }
     }
+    [self resetUI];
+    DLChannel *channel = [item representedObject];
+    if ([channel type] == ChannelTypeVoice) {
+        [attachButton setEnabled:NO];
+        [messageEntryTextView setEditable:NO];
+        [chatScrollView unregisterDraggedTypes];
+        [[DLController sharedInstance] setSelectedChannel:channel];
+        [chatHeaderLabel setStringValue:[NSString stringWithFormat:@"%@ (Voice)", [channel name]]];
+        [chatHeaderImage setImage:[[[NSImage alloc] initWithData:[channel subImageData]] autorelease]];
+        [chatScrollView setContent:[NSArray array]];
+        [[DLWSController sharedInstance] joinVoiceChannel:channel inServer:[[DLController sharedInstance] selectedServer]];
+        return;
+    }
+
     [attachButton setEnabled:YES];
     [messageEntryTextView setEditable:YES];
     [chatScrollView registerForDraggedTypes:[NSArray arrayWithObjects:NSFilenamesPboardType, nil]];
-    [self resetUI];
-    [[DLController sharedInstance] loadMessagesForChannel:[item representedObject] beforeMessage:nil quantity:25];
+    [[DLController sharedInstance] loadMessagesForChannel:channel beforeMessage:nil quantity:25];
 }
 -(void)dmChannelItemWasSelected:(DirectMessageItemViewController *)item {
     lastMessage = nil;
