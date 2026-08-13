@@ -29,12 +29,13 @@
     NSInteger i;
     for (i = 0; i < 12; i++) {
         CGFloat angle = ((CGFloat)(i + animationPhase) / 12.0f) * 6.283185307f - 1.570796327f;
-        CGFloat innerRadius = 4.0f;
-        CGFloat outerRadius = 6.5f;
-        CGFloat alpha = 0.20f + (0.80f * ((CGFloat)(i + 1) / 12.0f));
+        CGFloat innerRadius = 3.8f;
+        CGFloat outerRadius = 6.6f;
+        CGFloat alpha = 0.12f + (0.88f * ((CGFloat)(i + 1) / 12.0f));
         [[NSColor colorWithCalibratedWhite:1.0f alpha:alpha] set];
         NSBezierPath *segment = [NSBezierPath bezierPath];
-        [segment setLineWidth:1.6f];
+        [segment setLineWidth:1.8f];
+        [segment setLineCapStyle:NSRoundLineCapStyle];
         [segment moveToPoint:NSMakePoint(centerX + cos(angle) * innerRadius, centerY + sin(angle) * innerRadius)];
         [segment lineToPoint:NSMakePoint(centerX + cos(angle) * outerRadius, centerY + sin(angle) * outerRadius)];
         [segment stroke];
@@ -42,7 +43,7 @@
 }
 
 -(void)advanceAnimation:(NSTimer *)timer {
-    animationPhase = (animationPhase + 1) % 12;
+    animationPhase = (animationPhase + 11) % 12;
     [self setNeedsDisplay:YES];
 }
 
