@@ -1907,7 +1907,6 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
     [attachButton setEnabled:YES];
     [messageEntryTextView setEditable:YES];
     [chatScrollView registerForDraggedTypes:[NSArray arrayWithObjects:NSFilenamesPboardType, nil]];
-    [[DLController sharedInstance] loadMessagesForChannel:channel beforeMessage:nil quantity:25];
     [self resetUI];
     if ([[item representedObject] isKindOfClass:[DLServerChannel class]] && ([[(DLServerChannel *)[item representedObject] children] count] > 0 || [(DLServerChannel *)[item representedObject] type] == ChannelTypeForum)) {
         [attachButton setEnabled:NO];
