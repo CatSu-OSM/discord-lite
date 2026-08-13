@@ -519,15 +519,32 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
         return;
     }
 
+    if (voiceLeavePending) {
+        [queuedVoiceGuildID release];
+        queuedVoiceGuildID = [[s serverID] retain];
+        [queuedVoiceChannelID release];
+        queuedVoiceChannelID = [[c channelID] retain];
+        DLVoiceSetStatus(&voiceConnectionStatus, @"Leaving previous voice channel…");
+        [self performSelector:@selector(beginQueuedVoiceJoin:) withObject:queuedVoiceGuildID afterDelay:1.0];
+        return;
+    }
+    [self beginVoiceJoinForGuildID:[s serverID] channelID:[c channelID]];
+}
+
+-(void)beginVoiceJoinForGuildID:(NSString *)guildID channelID:(NSString *)channelID {
+    if (!DLVoiceStringIsUsable(guildID) || !DLVoiceStringIsUsable(channelID)) {
+        return;
+    }
+
     // Prevent an old gateway thread from clearing handles or status belonging
     // to this fresh join after its asynchronous shutdown completes.
     voiceGeneration++;
     // Credentials are per join. Never reuse a voice token/session from a
     // previous channel, even when Discord returns the same endpoint.
     [pendingVoiceGuildID release];
-    pendingVoiceGuildID = [[s serverID] retain];
+    pendingVoiceGuildID = [guildID retain];
     [pendingVoiceChannelID release];
-    pendingVoiceChannelID = [[c channelID] retain];
+    pendingVoiceChannelID = [channelID retain];
     [pendingVoiceSessionID release];
     pendingVoiceSessionID = nil;
     [pendingVoiceEndpoint release];
@@ -571,8 +588,8 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
 
     // The media connection is negotiated separately after the gateway confirms this state.
     NSMutableDictionary *data = [[NSMutableDictionary alloc] init];
-    [data setObject:[s serverID] forKey:@"guild_id"];
-    [data setObject:[c channelID] forKey:@"channel_id"];
+    [data setObject:guildID forKey:@"guild_id"];
+    [data setObject:channelID forKey:@"channel_id"];
     [data setObject:[NSNumber numberWithBool:NO] forKey:@"self_mute"];
     [data setObject:[NSNumber numberWithBool:NO] forKey:@"self_deaf"];
 
@@ -584,6 +601,22 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
 
     [request release];
     [data release];
+}
+
+-(void)beginQueuedVoiceJoin:(NSString *)expectedGuildID {
+    if (!voiceLeavePending || !queuedVoiceGuildID || ![queuedVoiceGuildID isEqualToString:expectedGuildID]) {
+        return;
+    }
+    voiceLeavePending = NO;
+    NSString *guildID = [queuedVoiceGuildID retain];
+    NSString *channelID = [queuedVoiceChannelID retain];
+    [queuedVoiceGuildID release];
+    queuedVoiceGuildID = nil;
+    [queuedVoiceChannelID release];
+    queuedVoiceChannelID = nil;
+    [self beginVoiceJoinForGuildID:guildID channelID:channelID];
+    [guildID release];
+    [channelID release];
 }
 
 -(void)sendVoiceStateForChannelID:(id)channelID {
@@ -608,6 +641,9 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
 -(BOOL)isVoiceSelfDeafened { return voiceSelfDeafened; }
 
 -(void)leaveVoiceChannel {
+    if (pendingVoiceGuildID) {
+        voiceLeavePending = YES;
+    }
     [self sendVoiceStateForChannelID:[NSNull null]];
     [self stop];
 }
@@ -1259,7 +1295,13 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
                 NSDictionary *voiceData = [res objectForKey:@kWSData];
                 // Voice State Updates for every member share this gateway.
                 // Only ours contains the session ID we may use to identify.
-                if ([[voiceData objectForKey:@"guild_id"] isEqualToString:pendingVoiceGuildID] &&
+                if (voiceLeavePending &&
+                    [[voiceData objectForKey:@"guild_id"] isEqualToString:pendingVoiceGuildID] &&
+                    [[voiceData objectForKey:@"user_id"] isEqualToString:userID] &&
+                    !DLVoiceStringIsUsable([voiceData objectForKey:@"channel_id"])) {
+                    [self beginQueuedVoiceJoin:queuedVoiceGuildID];
+                } else if (!voiceLeavePending &&
+                    [[voiceData objectForKey:@"guild_id"] isEqualToString:pendingVoiceGuildID] &&
                     [[voiceData objectForKey:@"channel_id"] isEqualToString:pendingVoiceChannelID] &&
                     [[voiceData objectForKey:@"user_id"] isEqualToString:userID]) {
                     [pendingVoiceSessionID release];
@@ -1268,7 +1310,7 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
                 }
             } else if ([type isEqualToString:@"VOICE_SERVER_UPDATE"]) {
                 NSDictionary *voiceData = [res objectForKey:@kWSData];
-                if ([[voiceData objectForKey:@"guild_id"] isEqualToString:pendingVoiceGuildID]) {
+                if (!voiceLeavePending && [[voiceData objectForKey:@"guild_id"] isEqualToString:pendingVoiceGuildID]) {
                     [pendingVoiceEndpoint release];
                     pendingVoiceEndpoint = [[voiceData objectForKey:@"endpoint"] retain];
                     [pendingVoiceToken release];
