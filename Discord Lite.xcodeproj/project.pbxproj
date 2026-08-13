@@ -101,6 +101,7 @@
 		D1A000012F00000100000006 /* libopus.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D1A000012F00000100000004 /* libopus.a */; };
 		D1A000012F00000100000007 /* libsodium.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D1A000012F00000100000005 /* libsodium.a */; };
 		D1A000012F00000100000009 /* CoreAudio.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D1A000012F00000100000008 /* CoreAudio.framework */; };
+		D1A000012F00000100000021 /* DiscordLiteVoiceHelper in Resources */ = {isa = PBXBuildFile; fileRef = D1A000012F00000100000022 /* DiscordLiteVoiceHelper */; };
 		87DA40172739F4DB007E7455 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = 87DA40162739F4DB007E7455 /* AppIcon.icns */; };
 		87E8A6F728B6A1A400BCBC93 /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 87E8A6F628B6A1A400BCBC93 /* WebKit.framework */; };
 		87E8A6F828B6A21D00BCBC93 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 87739809288A42A300548F3F /* Foundation.framework */; };
@@ -316,6 +317,7 @@
 		D1A000012F00000100000004 /* libopus.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = VoiceDependencies/libopus.a; sourceTree = "<group>"; };
 		D1A000012F00000100000005 /* libsodium.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = VoiceDependencies/libsodium.a; sourceTree = "<group>"; };
 		D1A000012F00000100000008 /* CoreAudio.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAudio.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.7.sdk/System/Library/Frameworks/CoreAudio.framework; sourceTree = DEVELOPER_DIR; };
+		D1A000012F00000100000022 /* DiscordLiteVoiceHelper */ = {isa = PBXFileReference; lastKnownFileType = compiled.mach-o.executable; path = voice-helper/Prebuilt/DiscordLiteVoiceHelper; sourceTree = SOURCE_ROOT; };
 		87DA40162739F4DB007E7455 /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = AppIcon.icns; sourceTree = "<group>"; };
 		87E8A6F628B6A1A400BCBC93 /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.7.sdk/System/Library/Frameworks/WebKit.framework; sourceTree = DEVELOPER_DIR; };
 		87F066DD28B553D000FE92A2 /* DLPreferencesWindowController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DLPreferencesWindowController.h; sourceTree = "<group>"; };
@@ -542,6 +544,7 @@
 		87C0835C2728E27900C8F933 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				D1A000012F00000100000022 /* DiscordLiteVoiceHelper */,
 				878B0B2B2738FD4A00547D61 /* discord_placeholder.png */,
 				87C0835D2728E28500C8F933 /* Discord-Logo.png */,
 				87C6E6962730510500090639 /* uI4.png */,
@@ -782,6 +785,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D1A000012F00000100000021 /* DiscordLiteVoiceHelper in Resources */,
 				87A38DEF27339557002385EE /* at.png in Resources */,
 				87C6E6972730510500090639 /* uI4.png in Resources */,
 				87DA40172739F4DB007E7455 /* AppIcon.icns in Resources */,
