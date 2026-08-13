@@ -98,6 +98,7 @@
 		87DA40092739DB28007E7455 /* mention_notification.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 87DA40082739DB28007E7455 /* mention_notification.mp3 */; };
 		87DA400C2739DD58007E7455 /* DLAudioPlayer.m in Sources */ = {isa = PBXBuildFile; fileRef = 87DA400B2739DD58007E7455 /* DLAudioPlayer.m */; };
 		D1A000012F00000100000001 /* DLVoiceMedia.m in Sources */ = {isa = PBXBuildFile; fileRef = D1A000012F00000100000003 /* DLVoiceMedia.m */; };
+		D1A000012F00000100000031 /* DLVoiceHelper.m in Sources */ = {isa = PBXBuildFile; fileRef = D1A000012F00000100000032 /* DLVoiceHelper.m */; };
 		D1A000012F00000100000006 /* libopus.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D1A000012F00000100000004 /* libopus.a */; };
 		D1A000012F00000100000007 /* libsodium.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D1A000012F00000100000005 /* libsodium.a */; };
 		D1A000012F00000100000009 /* CoreAudio.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D1A000012F00000100000008 /* CoreAudio.framework */; };
@@ -314,6 +315,8 @@
 		87DA400B2739DD58007E7455 /* DLAudioPlayer.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = DLAudioPlayer.m; sourceTree = "<group>"; };
 		D1A000012F00000100000002 /* DLVoiceMedia.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DLVoiceMedia.h; sourceTree = "<group>"; };
 		D1A000012F00000100000003 /* DLVoiceMedia.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = DLVoiceMedia.m; sourceTree = "<group>"; };
+		D1A000012F00000100000030 /* DLVoiceHelper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DLVoiceHelper.h; sourceTree = "<group>"; };
+		D1A000012F00000100000032 /* DLVoiceHelper.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = DLVoiceHelper.m; sourceTree = "<group>"; };
 		D1A000012F00000100000004 /* libopus.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = VoiceDependencies/libopus.a; sourceTree = "<group>"; };
 		D1A000012F00000100000005 /* libsodium.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = VoiceDependencies/libsodium.a; sourceTree = "<group>"; };
 		D1A000012F00000100000008 /* CoreAudio.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAudio.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.7.sdk/System/Library/Frameworks/CoreAudio.framework; sourceTree = DEVELOPER_DIR; };
@@ -375,6 +378,8 @@
 				87C083522728DEA000C8F933 /* DLController.m */,
 				878E498327347A4900BBB18B /* DLWSController.h */,
 				878E498427347A4900BBB18B /* DLWSController.m */,
+				D1A000012F00000100000030 /* DLVoiceHelper.h */,
+				D1A000012F00000100000032 /* DLVoiceHelper.m */,
 				8714B1A92729F5B000DA4AF9 /* DLErrorHandler.h */,
 				8714B1AA2729F5B000DA4AF9 /* DLErrorHandler.m */,
 				871E7F1228B47C1200D498E7 /* DLPreferencesHandler.h */,
@@ -878,6 +883,7 @@
 				87C2CF8C272F438600F10466 /* ViewController.m in Sources */,
 				87DA400C2739DD58007E7455 /* DLAudioPlayer.m in Sources */,
 				D1A000012F00000100000001 /* DLVoiceMedia.m in Sources */,
+				D1A000012F00000100000031 /* DLVoiceHelper.m in Sources */,
 				87C6E69A273052B100090639 /* ChannelItemViewController.m in Sources */,
 				87B8863F2CEF05AC005117BE /* AsyncHTTPRequestSettings.m in Sources */,
 				878E498527347A4900BBB18B /* DLWSController.m in Sources */,
