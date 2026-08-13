@@ -17,6 +17,7 @@ static DLController* sharedObject = nil;
     [[DLWSController sharedInstance] setDelegate:self];
     loadedChannels = [[NSMutableDictionary alloc] init];
     loadedServers = [[NSMutableDictionary alloc] init];
+    serverOrder = [[NSMutableArray alloc] init];
     loadedMessages = [[NSMutableArray alloc] init];
     [[AsyncHTTPRequestSettings sharedInstance] setUserAgentString:[DLUtil userAgentString]];
     [[AsyncHTTPRequestSettings sharedInstance] setPersistentPOSTHeaders:[DLUtil defaultHTTPPostHeaders]];
@@ -191,8 +192,10 @@ static DLController* sharedObject = nil;
     [[NSUserDefaults standardUserDefaults] synchronize];
     [loadedChannels release];
     [loadedServers release];
+    [serverOrder release];
     loadedChannels = [[NSMutableDictionary alloc] init];
     loadedServers = [[NSMutableDictionary alloc] init];
+    serverOrder = [[NSMutableArray alloc] init];
     [myServerItem release];
     myServerItem = nil;
     [myUser release];
@@ -231,6 +234,7 @@ static DLController* sharedObject = nil;
 
 -(NSArray *)userServers {
     NSMutableArray *servers = [[NSMutableArray alloc] init];
+    NSMutableSet *placedServerIDs = [[NSMutableSet alloc] init];
     NSEnumerator *e = [[myUserSettings serverFolders] objectEnumerator];
     DLServerFolder *folder;
     while (folder = [e nextObject]) {
@@ -239,19 +243,23 @@ static DLController* sharedObject = nil;
         while (serverID = [ee nextObject]) {
             if ([loadedServers objectForKey:serverID]) {
                 [servers addObject:[loadedServers objectForKey:serverID]];
+                [placedServerIDs addObject:serverID];
             }
         }
     }
-    //Load unordered servers
-    e = [[loadedServers allKeys] objectEnumerator];
+    // Settings normally contain every guild. If the gateway supplies one that
+    // has not reached settings yet, retain its gateway order rather than using
+    // NSMutableDictionary's arbitrary key order.
+    e = [serverOrder objectEnumerator];
     NSString *serverID;
     while (serverID = [e nextObject]) {
         if ([loadedServers objectForKey:serverID]) {
-            if (![servers containsObject:[loadedServers objectForKey:serverID]]) {
-                [servers insertObject:[loadedServers objectForKey:serverID] atIndex:0];
+            if (![placedServerIDs containsObject:serverID]) {
+                [servers addObject:[loadedServers objectForKey:serverID]];
             }
         }
     }
+    [placedServerIDs release];
     return servers;
 }
 -(NSArray *)channelsForServer:(DLServer *)s {
@@ -569,9 +577,13 @@ static DLController* sharedObject = nil;
     NSEnumerator *e = [data objectEnumerator];
     NSDictionary *serverData;
     while (serverData = [e nextObject]) {
-        if (![loadedServers objectForKey:[serverData objectForKey:@"id"]]) {
+        NSString *serverID = [serverData objectForKey:@"id"];
+        if (serverID && ![serverOrder containsObject:serverID]) {
+            [serverOrder addObject:serverID];
+        }
+        if (![loadedServers objectForKey:serverID]) {
             DLServer *s = [[DLServer alloc] initWithDict:serverData];
-            [loadedServers setObject:s forKey:[serverData objectForKey:@"id"]];
+            [loadedServers setObject:s forKey:serverID];
             [s release];
         }
         NSEnumerator *ee = [[serverData objectForKey:@"channels"] objectEnumerator];

@@ -65,6 +65,7 @@ typedef enum {
     DLUser *myUser;
     DLUserSettings *myUserSettings;
     NSMutableDictionary *loadedServers;
+    NSMutableArray *serverOrder;
     NSMutableDictionary *loadedChannels;
     NSMutableArray *loadedMessages;
     NSString *authFingerprint;
