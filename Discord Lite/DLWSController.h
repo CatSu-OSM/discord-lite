@@ -109,6 +109,7 @@ typedef enum {
     NSUInteger voicePacketsReceived;
     NSUInteger voicePacketsPlayed;
     NSString *voiceLastError;
+    NSString *voiceConnectionStatus;
 }
 
 +(DLWSController *)sharedInstance;

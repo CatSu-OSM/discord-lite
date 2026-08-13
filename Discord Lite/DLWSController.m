@@ -31,6 +31,11 @@ static void DLVoiceSetError(NSString **target, NSString *message) {
     *target = [message copy];
 }
 
+static void DLVoiceSetStatus(NSString **target, NSString *message) {
+    [*target release];
+    *target = [message copy];
+}
+
 static NSString *DLHexStringFromData(NSData *data) {
     const unsigned char *bytes = [data bytes];
     NSMutableString *result = [NSMutableString stringWithCapacity:[data length] * 2];
@@ -178,6 +183,7 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     voiceSelfDeafened = NO;
     voicePacketsReceived = 0;
     voicePacketsPlayed = 0;
+    DLVoiceSetStatus(&voiceConnectionStatus, @"Disconnected");
     [voiceClientIDs removeAllObjects];
     shouldResume = NO;
 }
@@ -276,6 +282,7 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     voicePacketsReceived = 0;
     voicePacketsPlayed = 0;
     DLVoiceSetError(&voiceLastError, nil);
+    DLVoiceSetStatus(&voiceConnectionStatus, @"Requesting voice credentials…");
     [voiceHelper stop];
     [voiceHelper release];
     voiceHelper = nil;
@@ -337,8 +344,8 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
 
 -(NSString *)voiceStatusText {
     if (voiceLastError) return voiceLastError;
-    if (!voiceConnectionStarting) return @"Not connected";
-    return [NSString stringWithFormat:@"Connected · received %lu · playing %lu", (unsigned long)voicePacketsReceived, (unsigned long)voicePacketsPlayed];
+    if (voicePacketsPlayed) return [NSString stringWithFormat:@"Voice active · received %lu · playing %lu", (unsigned long)voicePacketsReceived, (unsigned long)voicePacketsPlayed];
+    return voiceConnectionStatus ? voiceConnectionStatus : @"Requesting voice credentials…";
 }
 
 static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
@@ -370,6 +377,7 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
         return;
     }
     voiceConnectionStarting = YES;
+    DLVoiceSetStatus(&voiceConnectionStatus, @"Opening encrypted voice gateway…");
     if ([delegate respondsToSelector:@selector(wsVoiceConnectionReadyForGuildID:channelID:sessionID:endpoint:token:userID:)]) {
         [delegate wsVoiceConnectionReadyForGuildID:pendingVoiceGuildID channelID:pendingVoiceChannelID
                                          sessionID:pendingVoiceSessionID endpoint:pendingVoiceEndpoint
@@ -385,7 +393,10 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
     NSString *helperError = nil;
     voiceHelper = [[DLVoiceHelper alloc] init];
     voiceDAVEEnabled = [voiceHelper startForUserID:userID groupID:pendingVoiceChannelID error:&helperError];
-    if (!voiceDAVEEnabled) NSLog(@"DAVE disabled for this voice connection: %@", helperError);
+    if (!voiceDAVEEnabled) {
+        DLVoiceSetError(&voiceLastError, helperError ? helperError : @"DAVE identity could not start.");
+        NSLog(@"DAVE disabled for this voice connection: %@", helperError);
+    }
     NSString *voiceURL = [NSString stringWithFormat:@"wss://%@/?v=8", pendingVoiceEndpoint];
     voiceWebSocketHandle = curl_easy_init();
     if (voiceWebSocketHandle) {
@@ -396,12 +407,15 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
         curl_easy_setopt(voiceWebSocketHandle, CURLOPT_WRITEDATA, voiceWebSocketHandle);
         CURLcode result = curl_easy_perform(voiceWebSocketHandle);
         if (result != CURLE_OK) {
-            NSLog(@"Voice WebSocket closed: %s", curl_easy_strerror(result));
+            NSString *message = [NSString stringWithFormat:@"Voice gateway closed: %s", curl_easy_strerror(result)];
+            DLVoiceSetError(&voiceLastError, message);
+            NSLog(@"%@", message);
         }
         curl_easy_cleanup(voiceWebSocketHandle);
         voiceWebSocketHandle = nil;
     }
     voiceConnectionStarting = NO;
+    if (!voiceLastError) DLVoiceSetStatus(&voiceConnectionStatus, @"Voice gateway disconnected.");
     [pool release];
 }
 
@@ -583,6 +597,7 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
     int opcode = [[response objectForKey:@kWSOperation] intValue];
     NSDictionary *data = [response objectForKey:@kWSData];
     if (opcode == 8) {
+        DLVoiceSetStatus(&voiceConnectionStatus, @"Authenticating voice gateway…");
         voiceHeartbeatInterval = [[data objectForKey:@"heartbeat_interval"] intValue];
         if (voiceHeartbeatTimer) {
             [voiceHeartbeatTimer invalidate];
@@ -592,6 +607,7 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
                                                               userInfo:nil repeats:YES];
         [self sendVoiceIdentify];
     } else if (opcode == 2) {
+        DLVoiceSetStatus(&voiceConnectionStatus, @"Opening UDP media path…");
         [voiceServerIP release];
         voiceServerIP = [[data objectForKey:@"ip"] retain];
         voiceServerPort = [[data objectForKey:@"port"] integerValue];
@@ -600,6 +616,7 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
         voiceEncryptionModes = [[data objectForKey:@"modes"] retain];
         [NSThread detachNewThreadSelector:@selector(startVoiceUDPDiscoveryThread) toTarget:self withObject:nil];
     } else if (opcode == 4) {
+        DLVoiceSetStatus(&voiceConnectionStatus, @"Voice transport ready; negotiating DAVE…");
         NSData *transportKey = DLDataFromByteArray([data objectForKey:@"secret_key"]);
         [voiceMedia release];
         voiceMedia = nil;
@@ -632,6 +649,7 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
         NSString *reply = [voiceHelper sendCommand:[NSString stringWithFormat:@"ACTIVATE %u", voiceSSRC] error:&helperError];
         if (![reply isEqualToString:@"MEDIA_READY"]) NSLog(@"DAVE media activation failed: %@ %@", reply, helperError);
         else if (voiceMedia) {
+            DLVoiceSetStatus(&voiceConnectionStatus, @"Voice media active; waiting for speech…");
             [voiceCapture stop];
             [voiceCapture release];
             voiceCapture = [[DLVoiceCapture alloc] initWithDelegate:self];
