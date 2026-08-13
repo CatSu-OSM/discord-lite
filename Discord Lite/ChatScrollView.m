@@ -30,12 +30,6 @@
 -(void)setScrollWheelEnabled:(BOOL)enabled {
     scrollWheelEnabled = enabled;
 }
--(void)scrollWheel:(NSEvent *)theEvent {
-    if (!scrollWheelEnabled) {
-        return;
-    }
-    [super scrollWheel:theEvent];
-}
 -(void)screenResize {
     CGFloat currentHeight = 0;
     NSEnumerator *e = [content objectEnumerator];
@@ -125,6 +119,7 @@
     [content release];
     content = [[NSMutableArray alloc] initWithArray:inContent];
     keepsNewestMessageVisible = YES;
+    CGFloat height = 0.0f;
     e = [content objectEnumerator];
     while (item = [e nextObject]) {
         CGFloat expectedHeight = [item expectedHeight];
@@ -149,6 +144,9 @@
 }
 
 -(void)scrollWheel:(NSEvent *)theEvent {
+    if (!scrollWheelEnabled) {
+        return;
+    }
     keepsNewestMessageVisible = NO;
     [super scrollWheel:theEvent];
 }

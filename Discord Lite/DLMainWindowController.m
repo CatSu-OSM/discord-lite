@@ -1526,6 +1526,8 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
     if ([appDelegate respondsToSelector:@selector(showPreferencesWindow:)]) {
         [appDelegate showPreferencesWindow:sender];
     }
+}
+
 - (IBAction)showEmojiMenu:(id)sender {
     NSMenu *emojiMenu = [[[NSMenu alloc] init] autorelease];
     NSArray *emojiCharacters = [DLTextParser basicEmojiCharacters];
