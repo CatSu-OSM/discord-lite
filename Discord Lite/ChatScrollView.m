@@ -162,8 +162,7 @@
     // history edge. Bounds-change notifications also occur during layout and
     // would otherwise preload messages while the user is still reading.
     NSRect visibleBounds = [[self contentView] bounds];
-    CGFloat documentHeight = [[self documentView] bounds].size.height;
-    if (visibleBounds.origin.y + visibleBounds.size.height >= documentHeight - 0.5f &&
+    if (visibleBounds.origin.y <= 0.5f &&
         [delegate respondsToSelector:@selector(chatScrollViewDidReachHistoryEdge)]) {
         [delegate chatScrollViewDidReachHistoryEdge];
     }
