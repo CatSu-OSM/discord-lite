@@ -92,6 +92,12 @@ sh voice-build/build-media-i386-lion.sh
 The resulting `libopus.a` and `libsodium.a` are installed below
 `$LIBDAVE_SOURCE_DIR/vcpkg/installed/i386-osx-107/lib/`.
 
+This fork also includes the resulting universal Intel (`i386` and `x86_64`)
+Opus and libsodium archives in `Discord Lite/VoiceDependencies/`.  Xcode 4.6.3
+links those archives automatically; building the application does not require
+Homebrew or vcpkg on the Lion Mac.  They support the 10.7+ voice path only and
+do not change the 10.6.8 text-client baseline.
+
 ## Current functional state
 
 ### Works
@@ -104,7 +110,7 @@ The resulting `libopus.a` and `libsodium.a` are installed below
 
 ### Not implemented
 
-- Voice audio streaming and video chat (selecting a voice channel sends the Discord join request, but media transport is not yet implemented)
+- Voice audio streaming and video chat (joining performs the voice gateway and UDP negotiation, but encrypted RTP, microphone capture, and playback are still being integrated)
 - Message web embeds
 - Friend requests
 
