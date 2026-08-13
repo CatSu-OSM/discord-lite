@@ -447,6 +447,10 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
     } else if (opcode == 13) {
         NSString *clientID = [data objectForKey:@"user_id"];
         if ([clientID length]) [voiceClientIDs removeObject:clientID];
+    } else if (opcode == 22 && voiceDAVEEnabled && [[data objectForKey:@"protocol_version"] intValue] > 0) {
+        NSString *helperError = nil;
+        NSString *reply = [voiceHelper sendCommand:[NSString stringWithFormat:@"ACTIVATE %u", voiceSSRC] error:&helperError];
+        if (![reply isEqualToString:@"MEDIA_READY"]) NSLog(@"DAVE media activation failed: %@ %@", reply, helperError);
     } else if (opcode == 24 && voiceDAVEEnabled && [[data objectForKey:@"epoch"] intValue] == 1) {
         NSString *helperError = nil;
         if ([voiceHelper startForUserID:userID groupID:pendingVoiceChannelID error:&helperError]) [self sendDAVEKeyPackage];

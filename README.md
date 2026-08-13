@@ -73,6 +73,8 @@ For the app's 10.7+ DAVE control bridge, `--dave-service` keeps the MLS
 session alive over a newline-delimited stdin/stdout protocol. It supports
 initial key-package generation plus external-sender, proposal, commit, and
 welcome processing without loading libdave into the 10.6-compatible app.
+Once an MLS epoch is active, its `ACTIVATE SSRC` and `ENCRYPT SSRC HEX` control
+commands bind the local sender ratchet to Opus media frames for the RTP layer.
 
 The helper's DAVE build uses the OS X Keychain to retain the device's signing
 identity. It is therefore a 10.7+ helper feature; the 10.6.8 text target does

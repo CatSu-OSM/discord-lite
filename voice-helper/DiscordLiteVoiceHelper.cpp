@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <vector>
 #include <string>
+#include <map>
 
 // Xcode 4's Lion libc++ predates std::variant. The prebuilt DAVE stack uses
 // this C++17 exception ABI, so provide the two symbols it needs.
@@ -279,6 +280,8 @@ static void splitUserIDs(char *text, std::vector<const char *> *users) {
 // QUIT                       -> BYE
 static int daveService() {
     DAVESessionHandle session = NULL;
+    DAVEEncryptorHandle encryptor = NULL;
+    std::string selfUserID;
     char line[32768];
     while (fgets(line, sizeof(line), stdin)) {
         size_t length = strlen(line);
@@ -291,6 +294,10 @@ static int daveService() {
         }
         if (strcmp(command, "RESET") == 0) {
             if (session) daveSessionReset(session);
+            if (encryptor) {
+                daveEncryptorDestroy(encryptor);
+                encryptor = NULL;
+            }
             printResponse("OK");
             continue;
         }
@@ -304,11 +311,16 @@ static int daveService() {
                 continue;
             }
             if (session) daveSessionDestroy(session);
+            if (encryptor) {
+                daveEncryptorDestroy(encryptor);
+                encryptor = NULL;
+            }
             session = daveSessionCreate(NULL, userID, daveFailure, NULL);
             if (!session) {
                 printResponse("ERROR session-create");
                 continue;
             }
+            selfUserID = userID;
             daveSessionInit(session, daveMaxSupportedProtocolVersion(), (uint64_t)group, userID);
             uint8_t *package = NULL;
             size_t packageLength = 0;
@@ -328,7 +340,7 @@ static int daveService() {
         }
         char *hex = strtok(NULL, " ");
         std::vector<uint8_t> bytes;
-        if (!hex || !decodeHex(hex, &bytes)) {
+        if (strcmp(command, "ACTIVATE") != 0 && strcmp(command, "ENCRYPT") != 0 && (!hex || !decodeHex(hex, &bytes))) {
             printResponse("ERROR invalid-hex");
             continue;
         }
@@ -371,10 +383,54 @@ static int daveService() {
             } else {
                 printResponse("WELCOME_FAILED");
             }
+        } else if (strcmp(command, "ACTIVATE") == 0) {
+            char *ssrcText = hex;
+            char *end = NULL;
+            unsigned long ssrc = ssrcText ? strtoul(ssrcText, &end, 10) : 0;
+            if (!ssrcText || !end || *end) {
+                printResponse("ERROR invalid-ssrc");
+                continue;
+            }
+            DAVEKeyRatchetHandle ratchet = daveSessionGetKeyRatchet(session, selfUserID.c_str());
+            if (!ratchet) {
+                printResponse("ERROR missing-sender-ratchet");
+                continue;
+            }
+            if (!encryptor) encryptor = daveEncryptorCreate();
+            if (!encryptor) {
+                daveKeyRatchetDestroy(ratchet);
+                printResponse("ERROR encryptor-create");
+                continue;
+            }
+            daveEncryptorAssignSsrcToCodec(encryptor, (uint32_t)ssrc, DAVE_CODEC_OPUS);
+            daveEncryptorSetPassthroughMode(encryptor, false);
+            daveEncryptorSetKeyRatchet(encryptor, ratchet);
+            daveKeyRatchetDestroy(ratchet);
+            printResponse(daveEncryptorHasKeyRatchet(encryptor) ? "MEDIA_READY" : "ERROR missing-sender-ratchet");
+        } else if (strcmp(command, "ENCRYPT") == 0) {
+            char *ssrcText = hex;
+            char *opusHex = strtok(NULL, " ");
+            char *end = NULL;
+            unsigned long ssrc = ssrcText ? strtoul(ssrcText, &end, 10) : 0;
+            std::vector<uint8_t> opus;
+            if (!encryptor || !ssrcText || !end || *end || !opusHex || !decodeHex(opusHex, &opus)) {
+                printResponse("ERROR media-not-ready");
+                continue;
+            }
+            size_t encryptedLength = daveEncryptorGetMaxCiphertextByteSize(encryptor, DAVE_MEDIA_TYPE_AUDIO, opus.size());
+            std::vector<uint8_t> encrypted(encryptedLength);
+            DAVEEncryptorResultCode result = daveEncryptorEncrypt(encryptor, DAVE_MEDIA_TYPE_AUDIO, (uint32_t)ssrc,
+                                                                    opus.data(), opus.size(), encrypted.data(), encrypted.size(), &encryptedLength);
+            if (result != DAVE_ENCRYPTOR_RESULT_CODE_SUCCESS) {
+                printResponse("ERROR encrypt-failed");
+                continue;
+            }
+            printHexResponse("ENCRYPTED", encrypted.data(), encryptedLength);
         } else {
             printResponse("ERROR unknown-command");
         }
     }
+    if (encryptor) daveEncryptorDestroy(encryptor);
     if (session) daveSessionDestroy(session);
     return 0;
 }
