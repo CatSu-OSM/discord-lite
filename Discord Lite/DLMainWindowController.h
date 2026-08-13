@@ -24,6 +24,8 @@
 #import "DLMessageEditor.h"
 #import "DLMemberListItemViewController.h"
 
+@class DLWhiteSpinner;
+
 typedef enum {
     DLDialogConfirmMessageDelete = 0
 } DLDialog;
@@ -74,7 +76,7 @@ typedef enum {
     IBOutlet NSImageView *chatHeaderImage;
     IBOutlet NSTextField *chatHeaderLabel;
     NSTextField *historyLoadingLabel;
-    NSProgressIndicator *historyLoadingSpinner;
+    DLWhiteSpinner *historyLoadingSpinner;
     IBOutlet HorizontalDynamicScrollView *pendingAttachmentsScrollView;
     IBOutlet NSTextField *typingStatusTextField;
     NSView_BGColor *voicePanelView;

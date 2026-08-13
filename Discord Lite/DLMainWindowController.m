@@ -9,6 +9,66 @@
 #import "DLMainWindowController.h"
 #import "FlippedClipView.h"
 
+@interface DLWhiteSpinner : NSView {
+    NSTimer *animationTimer;
+    NSInteger animationPhase;
+}
+-(void)startAnimation:(id)sender;
+-(void)stopAnimation:(id)sender;
+@end
+
+@implementation DLWhiteSpinner
+
+-(void)drawRect:(NSRect)dirtyRect {
+    if (!animationTimer) {
+        return;
+    }
+    NSRect bounds = [self bounds];
+    CGFloat centerX = NSMidX(bounds);
+    CGFloat centerY = NSMidY(bounds);
+    NSInteger i;
+    for (i = 0; i < 12; i++) {
+        CGFloat angle = ((CGFloat)(i + animationPhase) / 12.0f) * 6.283185307f - 1.570796327f;
+        CGFloat innerRadius = 4.0f;
+        CGFloat outerRadius = 6.5f;
+        CGFloat alpha = 0.20f + (0.80f * ((CGFloat)(i + 1) / 12.0f));
+        [[NSColor colorWithCalibratedWhite:1.0f alpha:alpha] set];
+        NSBezierPath *segment = [NSBezierPath bezierPath];
+        [segment setLineWidth:1.6f];
+        [segment moveToPoint:NSMakePoint(centerX + cos(angle) * innerRadius, centerY + sin(angle) * innerRadius)];
+        [segment lineToPoint:NSMakePoint(centerX + cos(angle) * outerRadius, centerY + sin(angle) * outerRadius)];
+        [segment stroke];
+    }
+}
+
+-(void)advanceAnimation:(NSTimer *)timer {
+    animationPhase = (animationPhase + 1) % 12;
+    [self setNeedsDisplay:YES];
+}
+
+-(void)startAnimation:(id)sender {
+    if (!animationTimer) {
+        animationPhase = 0;
+        animationTimer = [[NSTimer scheduledTimerWithTimeInterval:0.075f target:self selector:@selector(advanceAnimation:) userInfo:nil repeats:YES] retain];
+    }
+    [self setHidden:NO];
+    [self setNeedsDisplay:YES];
+}
+
+-(void)stopAnimation:(id)sender {
+    [animationTimer invalidate];
+    [animationTimer release];
+    animationTimer = nil;
+    [self setHidden:YES];
+}
+
+-(void)dealloc {
+    [animationTimer invalidate];
+    [animationTimer release];
+    [super dealloc];
+}
+@end
+
 @interface DLThreadPickerButton : NSButton {
     DLServerChannel *thread;
 }
@@ -1060,13 +1120,12 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
         [chatViewHeader addSubview:chatHeaderImage];
         chatHeaderLabel = DLLabel(NSMakeRect(50, 12, 345, 19), @"Channel", [NSFont boldSystemFontOfSize:15], [NSColor whiteColor]);
         [chatViewHeader addSubview:chatHeaderLabel];
-        historyLoadingLabel = DLLabel(NSMakeRect(205, 5, 170, 14), @"Loading earlier messages…", [NSFont systemFontOfSize:10], [NSColor lightGrayColor]);
+        historyLoadingLabel = DLLabel(NSMakeRect(205, 12, 170, 19), @"Loading earlier messages…", [NSFont systemFontOfSize:10], [NSColor lightGrayColor]);
         [historyLoadingLabel setAlignment:NSRightTextAlignment];
         [historyLoadingLabel setHidden:YES];
         [chatViewHeader addSubview:historyLoadingLabel];
-        historyLoadingSpinner = [[NSProgressIndicator alloc] initWithFrame:NSMakeRect(188, 4, 16, 16)];
-        [historyLoadingSpinner setStyle:NSProgressIndicatorSpinningStyle];
-        [historyLoadingSpinner setDisplayedWhenStopped:NO];
+        historyLoadingSpinner = [[DLWhiteSpinner alloc] initWithFrame:NSMakeRect(188, 13, 16, 16)];
+        [historyLoadingSpinner setHidden:YES];
         [chatViewHeader addSubview:historyLoadingSpinner];
         [contentView addSubview:chatViewHeader];
 
