@@ -14,6 +14,7 @@
 #import "DLServer.h"
 #import "DLPreferencesHandler.h"
 #import "DLVoiceHelper.h"
+#import "DLVoiceMedia.h"
 
 #include <stdint.h>
 
@@ -94,6 +95,9 @@ typedef enum {
     DLVoiceHelper *voiceHelper;
     NSMutableSet *voiceClientIDs;
     BOOL voiceDAVEEnabled;
+    DLVoiceMedia *voiceMedia;
+    uint16_t voiceRTPSequence;
+    uint32_t voiceRTPTimestamp;
 }
 
 +(DLWSController *)sharedInstance;

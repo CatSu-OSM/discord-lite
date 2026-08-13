@@ -46,6 +46,17 @@ static NSData *DLDataFromHexString(NSString *hex) {
     return data;
 }
 
+static NSData *DLDataFromByteArray(NSArray *values) {
+    if (![values isKindOfClass:[NSArray class]] || [values count] != 32) return nil;
+    unsigned char bytes[32];
+    for (NSUInteger index = 0; index < 32; index++) {
+        id value = [values objectAtIndex:index];
+        if (![value isKindOfClass:[NSNumber class]] || [value intValue] < 0 || [value intValue] > 255) return nil;
+        bytes[index] = (unsigned char)[value intValue];
+    }
+    return [NSData dataWithBytes:bytes length:sizeof(bytes)];
+}
+
 static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     if (!receivedWSData) {
         receivedWSData = [[NSMutableData alloc] init];
@@ -145,6 +156,8 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     [voiceHelper stop];
     [voiceHelper release];
     voiceHelper = nil;
+    [voiceMedia release];
+    voiceMedia = nil;
     voiceDAVEEnabled = NO;
     voiceConnectionStarting = NO;
     [voiceClientIDs removeAllObjects];
@@ -243,6 +256,8 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     [voiceHelper stop];
     [voiceHelper release];
     voiceHelper = nil;
+    [voiceMedia release];
+    voiceMedia = nil;
     voiceDAVEEnabled = NO;
     [voiceClientIDs removeAllObjects];
 
@@ -410,6 +425,21 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
         voiceEncryptionModes = [[data objectForKey:@"modes"] retain];
         [NSThread detachNewThreadSelector:@selector(startVoiceUDPDiscoveryThread) toTarget:self withObject:nil];
     } else if (opcode == 4) {
+        NSData *transportKey = DLDataFromByteArray([data objectForKey:@"secret_key"]);
+        [voiceMedia release];
+        voiceMedia = nil;
+        if (transportKey && [DLVoiceMedia isAvailable]) {
+            voiceMedia = [[DLVoiceMedia alloc] initWithChannels:2];
+            NSError *transportError = nil;
+            if (![voiceMedia setXChaChaTransportKey:transportKey error:&transportError]) {
+                NSLog(@"Voice transport key setup failed: %@", transportError);
+                [voiceMedia release];
+                voiceMedia = nil;
+            } else {
+                voiceRTPSequence = 0;
+                voiceRTPTimestamp = 0;
+            }
+        }
         if (voiceDAVEEnabled && [[data objectForKey:@"dave_protocol_version"] intValue] > 0) [self sendDAVEKeyPackage];
     } else if (opcode == 11) {
         NSArray *clients = [data objectForKey:@"user_ids"];
