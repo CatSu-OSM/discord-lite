@@ -180,27 +180,30 @@
     }
     ChatItemViewController *anchorItem = [anchorInfo objectAtIndex:0];
     CGFloat anchorOffset = [[anchorInfo objectAtIndex:1] floatValue];
-    NSRect anchorFrame = [anchorItem.view frame];
     NSClipView *clipView = [self contentView];
+    NSRect anchorFrame = [anchorItem.view convertRect:[anchorItem.view bounds] toView:clipView];
     CGFloat anchorY = MAX(0.0f, NSMinY(anchorFrame) - anchorOffset);
     [clipView scrollToPoint:NSMakePoint(NSMinX([clipView bounds]), anchorY)];
     [self reflectScrolledClipView:clipView];
 }
 
 -(void)appendContent:(NSArray *)inContent {
-    NSRect visibleBounds = [self documentVisibleRect];
+    NSClipView *clipView = [self contentView];
+    NSRect visibleBounds = [clipView bounds];
     ChatItemViewController *anchorItem = nil;
     NSEnumerator *existingItems = [content objectEnumerator];
     ChatItemViewController *existingItem;
     while (existingItem = [existingItems nextObject]) {
-        if (NSIntersectsRect([existingItem.view frame], visibleBounds)) {
+        NSRect itemFrame = [existingItem.view convertRect:[existingItem.view bounds] toView:clipView];
+        if (NSIntersectsRect(itemFrame, visibleBounds)) {
             anchorItem = existingItem;
             break;
         }
     }
     NSArray *anchorInfo = nil;
     if (anchorItem) {
-        CGFloat anchorOffset = NSMinY([anchorItem.view frame]) - NSMinY(visibleBounds);
+        NSRect anchorFrame = [anchorItem.view convertRect:[anchorItem.view bounds] toView:clipView];
+        CGFloat anchorOffset = NSMinY(anchorFrame) - NSMinY(visibleBounds);
         anchorInfo = [NSArray arrayWithObjects:anchorItem, [NSNumber numberWithFloat:anchorOffset], nil];
     }
     CGFloat height = [self.documentView frame].size.height;

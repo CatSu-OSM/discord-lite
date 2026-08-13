@@ -996,15 +996,6 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
         DLConfigureScrollView(chatScrollView, [[[NSView alloc] initWithFrame:NSMakeRect(0, 0, 409, 100)] autorelease], chatColor, &chatViewScroller);
         [contentView addSubview:chatScrollView];
 
-        historyLoadingLabel = DLLabel(NSMakeRect(205, 5, 170, 14), @"Loading earlier messages…", [NSFont systemFontOfSize:10], [NSColor lightGrayColor]);
-        [historyLoadingLabel setAlignment:NSRightTextAlignment];
-        [historyLoadingLabel setHidden:YES];
-        [chatViewHeader addSubview:historyLoadingLabel];
-        historyLoadingSpinner = [[NSProgressIndicator alloc] initWithFrame:NSMakeRect(188, 4, 16, 16)];
-        [historyLoadingSpinner setStyle:NSProgressIndicatorSpinningStyle];
-        [historyLoadingSpinner setDisplayedWhenStopped:NO];
-        [chatViewHeader addSubview:historyLoadingSpinner];
-
         voicePanelView = [[NSView_BGColor alloc] initWithFrame:[chatScrollView frame]];
         [voicePanelView setBackgroundColor:[NSColor colorWithCalibratedRed:37.0/255.0 green:38.0/255.0 blue:42.0/255.0 alpha:1.0]];
         voiceTitleTextField = DLLabel(NSMakeRect(28, 0, 340, 26), @"Voice channel", [NSFont boldSystemFontOfSize:22], [NSColor whiteColor]);
@@ -1069,6 +1060,14 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
         [chatViewHeader addSubview:chatHeaderImage];
         chatHeaderLabel = DLLabel(NSMakeRect(50, 12, 345, 19), @"Channel", [NSFont boldSystemFontOfSize:15], [NSColor whiteColor]);
         [chatViewHeader addSubview:chatHeaderLabel];
+        historyLoadingLabel = DLLabel(NSMakeRect(205, 5, 170, 14), @"Loading earlier messages…", [NSFont systemFontOfSize:10], [NSColor lightGrayColor]);
+        [historyLoadingLabel setAlignment:NSRightTextAlignment];
+        [historyLoadingLabel setHidden:YES];
+        [chatViewHeader addSubview:historyLoadingLabel];
+        historyLoadingSpinner = [[NSProgressIndicator alloc] initWithFrame:NSMakeRect(188, 4, 16, 16)];
+        [historyLoadingSpinner setStyle:NSProgressIndicatorSpinningStyle];
+        [historyLoadingSpinner setDisplayedWhenStopped:NO];
+        [chatViewHeader addSubview:historyLoadingSpinner];
         [contentView addSubview:chatViewHeader];
 
         messageEntryContainerView = [[NSView_BGColor alloc] initWithFrame:NSMakeRect(338, 0, 409, 56)];
