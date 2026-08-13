@@ -173,11 +173,37 @@
         [delegate chatScrollViewDidFinishAppendingContent];
     }
 }
--(void)appendContent:(NSArray *)inContent {
+
+-(void)restoreHistoryAnchor:(NSArray *)anchorInfo {
+    if ([anchorInfo count] != 2) {
+        return;
+    }
+    ChatItemViewController *anchorItem = [anchorInfo objectAtIndex:0];
+    CGFloat anchorOffset = [[anchorInfo objectAtIndex:1] floatValue];
+    NSRect anchorFrame = [anchorItem.view frame];
     NSClipView *clipView = [self contentView];
-    NSRect visibleBounds = [clipView bounds];
+    CGFloat anchorY = MAX(0.0f, NSMinY(anchorFrame) - anchorOffset);
+    [clipView scrollToPoint:NSMakePoint(NSMinX([clipView bounds]), anchorY)];
+    [self reflectScrolledClipView:clipView];
+}
+
+-(void)appendContent:(NSArray *)inContent {
+    NSRect visibleBounds = [self documentVisibleRect];
+    ChatItemViewController *anchorItem = nil;
+    NSEnumerator *existingItems = [content objectEnumerator];
+    ChatItemViewController *existingItem;
+    while (existingItem = [existingItems nextObject]) {
+        if (NSIntersectsRect([existingItem.view frame], visibleBounds)) {
+            anchorItem = existingItem;
+            break;
+        }
+    }
+    NSArray *anchorInfo = nil;
+    if (anchorItem) {
+        CGFloat anchorOffset = NSMinY([anchorItem.view frame]) - NSMinY(visibleBounds);
+        anchorInfo = [NSArray arrayWithObjects:anchorItem, [NSNumber numberWithFloat:anchorOffset], nil];
+    }
     CGFloat height = [self.documentView frame].size.height;
-    BOOL wasAtHistoryEdge = (visibleBounds.origin.y + visibleBounds.size.height >= height - 1.0f);
     NSEnumerator *e = [inContent objectEnumerator];
     ChatItemViewController *item;
     while (item = [e nextObject]) {
@@ -200,13 +226,13 @@
     [self.documentView setFrame: frame];
     [self.documentView setNeedsDisplay:YES];
     [self screenResize];
-    if (wasAtHistoryEdge) {
-        NSRect documentBounds = [[self documentView] bounds];
-        CGFloat historyEdgeY = MAX(0.0f, NSHeight(documentBounds) - visibleBounds.size.height);
-        [clipView scrollToPoint:NSMakePoint(visibleBounds.origin.x, historyEdgeY)];
-        [self reflectScrolledClipView:clipView];
+    if (anchorInfo) {
+        [self restoreHistoryAnchor:anchorInfo];
     }
     [self performSelector:@selector(screenResize) withObject:nil afterDelay:0.5];
+    if (anchorInfo) {
+        [self performSelector:@selector(restoreHistoryAnchor:) withObject:anchorInfo afterDelay:0.51];
+    }
     [self performSelector:@selector(contentAppendDidFinish) withObject:nil afterDelay:0.55];
 }
 -(void)prependViewController:(ChatItemViewController *)vc {

@@ -1781,6 +1781,7 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
     isLoadingMessages = YES;
     [historyLoadingLabel setHidden:NO];
     [historyLoadingSpinner startAnimation:nil];
+    [[self window] displayIfNeeded];
     [[DLController sharedInstance] loadMessagesForChannel:selectedChannel beforeMessage:lastMessage quantity:25];
 }
 
