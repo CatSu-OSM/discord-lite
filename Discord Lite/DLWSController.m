@@ -17,6 +17,9 @@
 @implementation DLWSController
 
 static NSMutableData* receivedWSData;
+static NSMutableData* receivedVoiceWSData;
+static BOOL receivedVoiceWSIsBinary;
+
 static DLWSController* sharedObject = nil;
 
 static BOOL DLVoiceStringIsUsable(id value) {
@@ -91,7 +94,6 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     voiceUDPSocket = -1;
     voiceClientIDs = [[NSMutableSet alloc] init];
     voiceUsersBySSRC = [[NSMutableDictionary alloc] init];
-    voiceOutgoingFrames = [[NSMutableArray alloc] init];
     return self;
 }
 
@@ -145,9 +147,6 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
 }
 -(void)stop {
     voiceGeneration++;
-    @synchronized(self) {
-        [voiceOutgoingFrames removeAllObjects];
-    }
     if (heartbeatTimer) {
         [heartbeatTimer invalidate];
         heartbeatTimer = nil;
@@ -158,6 +157,9 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     if (voiceHeartbeatTimer) {
         [voiceHeartbeatTimer invalidate];
         voiceHeartbeatTimer = nil;
+    }
+    if (voiceWebSocketHandle) {
+        curl_easy_setopt(voiceWebSocketHandle, CURLOPT_TIMEOUT_MS, 1);
     }
     if (voiceUDPSocket >= 0) {
         close(voiceUDPSocket);
@@ -255,9 +257,6 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     // Prevent an old gateway thread from clearing handles or status belonging
     // to this fresh join after its asynchronous shutdown completes.
     voiceGeneration++;
-    @synchronized(self) {
-        [voiceOutgoingFrames removeAllObjects];
-    }
     // Credentials are per join. Never reuse a voice token/session from a
     // previous channel, even when Discord returns the same endpoint.
     [pendingVoiceGuildID release];
@@ -273,6 +272,9 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     if (voiceHeartbeatTimer) {
         [voiceHeartbeatTimer invalidate];
         voiceHeartbeatTimer = nil;
+    }
+    if (voiceWebSocketHandle) {
+        curl_easy_setopt(voiceWebSocketHandle, CURLOPT_TIMEOUT_MS, 1);
     }
     if (voiceUDPSocket >= 0) {
         close(voiceUDPSocket);
@@ -350,6 +352,25 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     return voiceConnectionStatus ? voiceConnectionStatus : @"Requesting voice credentials…";
 }
 
+static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
+    if (!receivedVoiceWSData) {
+        receivedVoiceWSData = [[NSMutableData alloc] init];
+        const struct curl_ws_frame *firstFrame = curl_ws_meta((CURL *)p);
+        receivedVoiceWSIsBinary = (firstFrame->flags & CURLWS_BINARY) != 0;
+    }
+    CURL *easy = p;
+    const struct curl_ws_frame *frame = curl_ws_meta(easy);
+    [receivedVoiceWSData appendBytes:b length:nitems * size];
+    if (frame->bytesleft < 1) {
+        NSData *voiceData = [NSData dataWithData:receivedVoiceWSData];
+        SEL selector = receivedVoiceWSIsBinary ? @selector(voiceWSBinaryDataReceived:) : @selector(voiceWSTextDataReceived:);
+        [[DLWSController sharedInstance] performSelectorOnMainThread:selector withObject:voiceData waitUntilDone:YES];
+        [receivedVoiceWSData release];
+        receivedVoiceWSData = nil;
+    }
+    return nitems;
+}
+
 -(void)notifyVoiceConnectionIfReady {
     if (!DLVoiceStringIsUsable(pendingVoiceGuildID) || !DLVoiceStringIsUsable(pendingVoiceChannelID) ||
         !DLVoiceStringIsUsable(pendingVoiceSessionID) || !DLVoiceStringIsUsable(pendingVoiceEndpoint) ||
@@ -389,73 +410,20 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     NSString *voiceURL = [NSString stringWithFormat:@"wss://%@/?v=8", pendingVoiceEndpoint];
     CURL *easy = curl_easy_init();
     if (easy) {
+        voiceWebSocketHandle = easy;
         curl_easy_setopt(easy, CURLOPT_URL, [voiceURL UTF8String]);
         curl_easy_setopt(easy, CURLOPT_SSL_VERIFYPEER, 0L);
         curl_easy_setopt(easy, CURLOPT_USERAGENT, [[DLUtil userAgentString] UTF8String]);
-        // WebSocket send/receive calls are valid after this explicit upgrade.
-        // Keeping all of them in this thread avoids sharing one CURL handle
-        // across the main, heartbeat, and media threads.
-        curl_easy_setopt(easy, CURLOPT_CONNECT_ONLY, 2L);
+        curl_easy_setopt(easy, CURLOPT_WRITEFUNCTION, voicewritecb);
+        curl_easy_setopt(easy, CURLOPT_WRITEDATA, easy);
         CURLcode result = curl_easy_perform(easy);
-        if (result == CURLE_OK) {
-            NSMutableData *receivedData = [[NSMutableData alloc] init];
-            BOOL receivedIsBinary = NO;
-            @synchronized(self) {
-                if (generation == voiceGeneration) voiceWebSocketHandle = easy;
-            }
-            while (generation == voiceGeneration) {
-                NSArray *outgoingFrames = nil;
-                @synchronized(self) {
-                    if ([voiceOutgoingFrames count]) {
-                        outgoingFrames = [[voiceOutgoingFrames copy] autorelease];
-                        [voiceOutgoingFrames removeAllObjects];
-                    }
-                }
-                for (NSDictionary *frame in outgoingFrames) {
-                    NSData *data = [frame objectForKey:@"data"];
-                    unsigned int flags = [[frame objectForKey:@"binary"] boolValue] ? CURLWS_BINARY : CURLWS_TEXT;
-                    size_t sent = 0;
-                    CURLcode sendResult = curl_ws_send(easy, [data bytes], [data length], &sent, 0, flags);
-                    while (sendResult == CURLE_AGAIN && generation == voiceGeneration) {
-                        usleep(10000);
-                        sendResult = curl_ws_send(easy, [data bytes], [data length], &sent, 0, flags);
-                    }
-                    if (sendResult != CURLE_OK && sendResult != CURLE_AGAIN) {
-                        result = sendResult;
-                        break;
-                    }
-                }
-                if (result != CURLE_OK) break;
-                unsigned char buffer[4096];
-                size_t receivedLength = 0;
-                const struct curl_ws_frame *metadata = NULL;
-                CURLcode receiveResult = curl_ws_recv(easy, buffer, sizeof(buffer), &receivedLength, &metadata);
-                if (receiveResult == CURLE_OK && receivedLength && metadata) {
-                    if (![receivedData length]) receivedIsBinary = (metadata->flags & CURLWS_BINARY) != 0;
-                    [receivedData appendBytes:buffer length:receivedLength];
-                    if (metadata->bytesleft < 1) {
-                        NSData *voiceData = [NSData dataWithData:receivedData];
-                        SEL selector = receivedIsBinary ? @selector(voiceWSBinaryDataReceived:) : @selector(voiceWSTextDataReceived:);
-                        [self performSelectorOnMainThread:selector withObject:voiceData waitUntilDone:NO];
-                        [receivedData setLength:0];
-                    }
-                } else if (receiveResult != CURLE_OK && receiveResult != CURLE_AGAIN) {
-                    result = receiveResult;
-                    break;
-                }
-                usleep(10000);
-            }
-            [receivedData release];
-        }
-        if (result != CURLE_OK && generation == voiceGeneration) {
+        if (result != CURLE_OK) {
             NSString *message = [NSString stringWithFormat:@"Voice gateway closed: %s", curl_easy_strerror(result)];
             DLVoiceSetError(&voiceLastError, message);
             NSLog(@"%@", message);
         }
-        @synchronized(self) {
-            if (voiceWebSocketHandle == easy) voiceWebSocketHandle = nil;
-        }
         curl_easy_cleanup(easy);
+        if (generation == voiceGeneration && voiceWebSocketHandle == easy) voiceWebSocketHandle = nil;
     }
     if (generation == voiceGeneration) {
         voiceConnectionStarting = NO;
@@ -465,16 +433,16 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
 }
 
 -(void)sendVoiceWSTextData:(NSData *)textData {
-    if (![textData length]) return;
-    @synchronized(self) {
-        [voiceOutgoingFrames addObject:[NSDictionary dictionaryWithObjectsAndKeys:[NSData dataWithData:textData], @"data", [NSNumber numberWithBool:NO], @"binary", nil]];
+    if (voiceWebSocketHandle) {
+        size_t sent;
+        curl_ws_send(voiceWebSocketHandle, [textData bytes], [textData length], &sent, 0, CURLWS_TEXT);
     }
 }
 
 -(void)sendVoiceWSBinaryData:(NSData *)data {
-    if (![data length]) return;
-    @synchronized(self) {
-        [voiceOutgoingFrames addObject:[NSDictionary dictionaryWithObjectsAndKeys:[NSData dataWithData:data], @"data", [NSNumber numberWithBool:YES], @"binary", nil]];
+    if (voiceWebSocketHandle && [data length]) {
+        size_t sent;
+        curl_ws_send(voiceWebSocketHandle, [data bytes], [data length], &sent, 0, CURLWS_BINARY);
     }
 }
 
