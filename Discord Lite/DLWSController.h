@@ -15,6 +15,7 @@
 #import "DLPreferencesHandler.h"
 #import "DLVoiceHelper.h"
 #import "DLVoiceMedia.h"
+#import "DLVoiceCapture.h"
 
 #include <stdint.h>
 
@@ -64,7 +65,7 @@ typedef enum {
                                  userID:(NSString *)userID;
 @end
 
-@interface DLWSController : NSObject {
+@interface DLWSController : NSObject <DLVoiceCaptureDelegate> {
     CURL *curlWebSocketHandle;
     CURL *voiceWebSocketHandle;
     NSString *token;
@@ -98,6 +99,8 @@ typedef enum {
     DLVoiceMedia *voiceMedia;
     uint16_t voiceRTPSequence;
     uint32_t voiceRTPTimestamp;
+    DLVoiceCapture *voiceCapture;
+    BOOL voiceIsSpeaking;
 }
 
 +(DLWSController *)sharedInstance;

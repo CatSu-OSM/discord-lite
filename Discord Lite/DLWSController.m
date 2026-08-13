@@ -158,6 +158,10 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     voiceHelper = nil;
     [voiceMedia release];
     voiceMedia = nil;
+    [voiceCapture stop];
+    [voiceCapture release];
+    voiceCapture = nil;
+    voiceIsSpeaking = NO;
     voiceDAVEEnabled = NO;
     voiceConnectionStarting = NO;
     [voiceClientIDs removeAllObjects];
@@ -258,6 +262,10 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     voiceHelper = nil;
     [voiceMedia release];
     voiceMedia = nil;
+    [voiceCapture stop];
+    [voiceCapture release];
+    voiceCapture = nil;
+    voiceIsSpeaking = NO;
     voiceDAVEEnabled = NO;
     [voiceClientIDs removeAllObjects];
 
@@ -373,6 +381,56 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
     [self sendVoiceWSTextData:[[CJSONSerializer serializer] serializeDictionary:ready error:nil]];
 }
 
+-(void)sendVoiceSpeaking {
+    if (voiceIsSpeaking) return;
+    NSDictionary *data = [NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithInt:1], @"speaking",
+                          [NSNumber numberWithInt:0], @"delay", [NSNumber numberWithUnsignedInt:voiceSSRC], @"ssrc", nil];
+    NSDictionary *speaking = [NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithInt:5], @kWSOperation, data, @kWSData, nil];
+    [self sendVoiceWSTextData:[[CJSONSerializer serializer] serializeDictionary:speaking error:nil]];
+    voiceIsSpeaking = YES;
+}
+
+-(void)voiceCaptureDidReceivePCM:(NSData *)pcm {
+    if (!voiceCapture || !voiceMedia || !voiceDAVEEnabled || voiceUDPSocket < 0 || [pcm length] != 3840) return;
+    NSError *opusError = nil;
+    NSData *opus = [voiceMedia encodePCM:pcm frameCount:960 error:&opusError];
+    if (!opus) {
+        NSLog(@"Voice Opus encoding failed: %@", opusError);
+        return;
+    }
+    NSString *helperError = nil;
+    NSString *reply = [voiceHelper sendCommand:[NSString stringWithFormat:@"ENCRYPT %u %@", voiceSSRC, DLHexStringFromData(opus)] error:&helperError];
+    if (![reply hasPrefix:@"ENCRYPTED "]) {
+        if (helperError) NSLog(@"DAVE audio encryption failed: %@", helperError);
+        return;
+    }
+    NSData *daveFrame = DLDataFromHexString([reply substringFromIndex:[@"ENCRYPTED " length]]);
+    unsigned char headerBytes[12] = { 0x80, 0x78, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+    uint16_t sequence = htons(voiceRTPSequence++);
+    uint32_t timestamp = htonl(voiceRTPTimestamp);
+    uint32_t ssrc = htonl(voiceSSRC);
+    voiceRTPTimestamp += 960;
+    memcpy(headerBytes + 2, &sequence, sizeof(sequence));
+    memcpy(headerBytes + 4, &timestamp, sizeof(timestamp));
+    memcpy(headerBytes + 8, &ssrc, sizeof(ssrc));
+    NSError *transportError = nil;
+    NSData *packet = [voiceMedia encryptOpus:daveFrame rtpHeader:[NSData dataWithBytes:headerBytes length:sizeof(headerBytes)] error:&transportError];
+    if (!packet) {
+        NSLog(@"Voice RTP encryption failed: %@", transportError);
+        return;
+    }
+    struct sockaddr_in address;
+    memset(&address, 0, sizeof(address));
+    address.sin_family = AF_INET;
+    address.sin_port = htons((uint16_t)voiceServerPort);
+    if (inet_aton([voiceServerIP UTF8String], &address.sin_addr) == 0 ||
+        sendto(voiceUDPSocket, [packet bytes], [packet length], 0, (struct sockaddr *)&address, sizeof(address)) < 0) {
+        NSLog(@"Voice RTP send failed.");
+        return;
+    }
+    [self sendVoiceSpeaking];
+}
+
 -(void)sendVoiceHeartbeat {
     NSDictionary *heartbeatData = [NSDictionary dictionaryWithObjectsAndKeys:
                                    [NSNumber numberWithLongLong:[[NSDate date] timeIntervalSince1970] * 1000], @"t",
@@ -451,6 +509,13 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
         NSString *helperError = nil;
         NSString *reply = [voiceHelper sendCommand:[NSString stringWithFormat:@"ACTIVATE %u", voiceSSRC] error:&helperError];
         if (![reply isEqualToString:@"MEDIA_READY"]) NSLog(@"DAVE media activation failed: %@ %@", reply, helperError);
+        else if (voiceMedia) {
+            [voiceCapture stop];
+            [voiceCapture release];
+            voiceCapture = [[DLVoiceCapture alloc] initWithDelegate:self];
+            NSError *captureError = nil;
+            if (![voiceCapture start:&captureError]) NSLog(@"Voice microphone start failed: %@", captureError);
+        }
     } else if (opcode == 24 && voiceDAVEEnabled && [[data objectForKey:@"epoch"] intValue] == 1) {
         NSString *helperError = nil;
         if ([voiceHelper startForUserID:userID groupID:pendingVoiceChannelID error:&helperError]) [self sendDAVEKeyPackage];
