@@ -8,6 +8,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <vector>
+#include <string>
 
 // Xcode 4's Lion libc++ predates std::variant. The prebuilt DAVE stack uses
 // this C++17 exception ABI, so provide the two symbols it needs.
@@ -30,6 +32,14 @@ void __throw_bad_variant_access() { throw bad_variant_access(); }
 
 static void daveFailure(const char *source, const char *reason, void *) {
     fprintf(stderr, "DAVE failure from %s: %s\n", source ? source : "unknown", reason ? reason : "unknown");
+}
+
+// libdave's default diagnostic sink writes to stdout.  Stdout is the framing
+// channel for --dave-service, so route diagnostics to stderr instead.
+static void daveLog(DAVELoggingSeverity severity, const char *file, int line, const char *message) {
+    if (severity >= DAVE_LOGGING_SEVERITY_WARNING) {
+        fprintf(stderr, "DAVE %s:%d: %s\n", file ? file : "unknown", line, message ? message : "unknown");
+    }
 }
 
 static bool defaultDevice(const AudioObjectPropertySelector selector, AudioDeviceID *device) {
@@ -213,6 +223,162 @@ static void printHex(const uint8_t *data, size_t length) {
     putchar('\n');
 }
 
+static bool decodeHex(const char *text, std::vector<uint8_t> *output) {
+    size_t length = strlen(text);
+    if ((length & 1) != 0) return false;
+    output->clear();
+    output->reserve(length / 2);
+    for (size_t index = 0; index < length; index += 2) {
+        char pair[3] = { text[index], text[index + 1], 0 };
+        char *end = NULL;
+        unsigned long value = strtoul(pair, &end, 16);
+        if (!end || *end || value > 255) return false;
+        output->push_back((uint8_t)value);
+    }
+    return true;
+}
+
+static void printResponse(const char *status) {
+    printf("%s\n", status);
+    fflush(stdout);
+}
+
+static void printHexResponse(const char *status, const uint8_t *data, size_t length) {
+    printf("%s ", status);
+    static const char hex[] = "0123456789abcdef";
+    for (size_t index = 0; index < length; index++) {
+        putchar(hex[data[index] >> 4]);
+        putchar(hex[data[index] & 15]);
+    }
+    putchar('\n');
+    fflush(stdout);
+}
+
+static void splitUserIDs(char *text, std::vector<const char *> *users) {
+    users->clear();
+    if (!text || !*text || strcmp(text, "-") == 0) return;
+    users->push_back(text);
+    for (char *cursor = text; *cursor; cursor++) {
+        if (*cursor == ',') {
+            *cursor = 0;
+            users->push_back(cursor + 1);
+        }
+    }
+}
+
+// A newline-delimited, local-only control protocol.  It deliberately accepts
+// hex rather than raw websocket bytes so the 10.6 Cocoa process can exchange
+// DAVE data over NSPipe without linking libdave or requiring C++17.
+//
+// INIT USER_ID GROUP_ID      -> KEY_PACKAGE <hex>
+// EXTERNAL_SENDER <hex>      -> OK
+// PROPOSALS <hex> USERS      -> COMMIT_WELCOME <hex> or NO_COMMIT
+// COMMIT <hex>               -> COMMIT_OK / COMMIT_IGNORED / COMMIT_FAILED
+// WELCOME <hex> USERS        -> WELCOME_OK / WELCOME_FAILED
+// RESET                      -> OK
+// QUIT                       -> BYE
+static int daveService() {
+    DAVESessionHandle session = NULL;
+    char line[32768];
+    while (fgets(line, sizeof(line), stdin)) {
+        size_t length = strlen(line);
+        while (length && (line[length - 1] == '\n' || line[length - 1] == '\r')) line[--length] = 0;
+        char *command = strtok(line, " ");
+        if (!command) continue;
+        if (strcmp(command, "QUIT") == 0) {
+            printResponse("BYE");
+            break;
+        }
+        if (strcmp(command, "RESET") == 0) {
+            if (session) daveSessionReset(session);
+            printResponse("OK");
+            continue;
+        }
+        if (strcmp(command, "INIT") == 0) {
+            char *userID = strtok(NULL, " ");
+            char *groupID = strtok(NULL, " ");
+            char *end = NULL;
+            unsigned long long group = groupID ? strtoull(groupID, &end, 10) : 0;
+            if (!userID || !*userID || !groupID || !*groupID || !end || *end) {
+                printResponse("ERROR invalid-init");
+                continue;
+            }
+            if (session) daveSessionDestroy(session);
+            session = daveSessionCreate(NULL, userID, daveFailure, NULL);
+            if (!session) {
+                printResponse("ERROR session-create");
+                continue;
+            }
+            daveSessionInit(session, daveMaxSupportedProtocolVersion(), (uint64_t)group, userID);
+            uint8_t *package = NULL;
+            size_t packageLength = 0;
+            daveSessionGetMarshalledKeyPackage(session, &package, &packageLength);
+            if (!package || !packageLength) {
+                if (package) daveFree(package);
+                printResponse("ERROR key-package");
+                continue;
+            }
+            printHexResponse("KEY_PACKAGE", package, packageLength);
+            daveFree(package);
+            continue;
+        }
+        if (!session) {
+            printResponse("ERROR not-initialized");
+            continue;
+        }
+        char *hex = strtok(NULL, " ");
+        std::vector<uint8_t> bytes;
+        if (!hex || !decodeHex(hex, &bytes)) {
+            printResponse("ERROR invalid-hex");
+            continue;
+        }
+        if (strcmp(command, "EXTERNAL_SENDER") == 0) {
+            daveSessionSetExternalSender(session, bytes.data(), bytes.size());
+            printResponse("OK");
+        } else if (strcmp(command, "PROPOSALS") == 0) {
+            char *userList = strtok(NULL, " ");
+            std::vector<const char *> users;
+            splitUserIDs(userList, &users);
+            uint8_t *commitWelcome = NULL;
+            size_t commitWelcomeLength = 0;
+            daveSessionProcessProposals(session, bytes.data(), bytes.size(), users.empty() ? NULL : &users[0], users.size(),
+                                        &commitWelcome, &commitWelcomeLength);
+            if (commitWelcome && commitWelcomeLength) {
+                printHexResponse("COMMIT_WELCOME", commitWelcome, commitWelcomeLength);
+                daveFree(commitWelcome);
+            } else {
+                printResponse("NO_COMMIT");
+            }
+        } else if (strcmp(command, "COMMIT") == 0) {
+            DAVECommitResultHandle result = daveSessionProcessCommit(session, bytes.data(), bytes.size());
+            if (!result || daveCommitResultIsFailed(result)) {
+                printResponse("COMMIT_FAILED");
+            } else if (daveCommitResultIsIgnored(result)) {
+                printResponse("COMMIT_IGNORED");
+            } else {
+                printResponse("COMMIT_OK");
+            }
+            if (result) daveCommitResultDestroy(result);
+        } else if (strcmp(command, "WELCOME") == 0) {
+            char *userList = strtok(NULL, " ");
+            std::vector<const char *> users;
+            splitUserIDs(userList, &users);
+            DAVEWelcomeResultHandle result = daveSessionProcessWelcome(session, bytes.data(), bytes.size(),
+                                                                         users.empty() ? NULL : &users[0], users.size());
+            if (result) {
+                daveWelcomeResultDestroy(result);
+                printResponse("WELCOME_OK");
+            } else {
+                printResponse("WELCOME_FAILED");
+            }
+        } else {
+            printResponse("ERROR unknown-command");
+        }
+    }
+    if (session) daveSessionDestroy(session);
+    return 0;
+}
+
 static int keyPackage(const char *userID, const char *groupID) {
     char *end = NULL;
     const unsigned long long group = strtoull(groupID, &end, 10);
@@ -235,14 +401,16 @@ static int keyPackage(const char *userID, const char *groupID) {
 }
 
 int main(int argc, char **argv) {
+    daveSetLogSinkCallback(daveLog);
     if (argc == 2 && strcmp(argv[1], "--dave-version") == 0) {
         printf("%u\n", daveMaxSupportedProtocolVersion());
         return 0;
     }
     if (argc == 2 && strcmp(argv[1], "--capture-test") == 0) return captureTest();
     if (argc == 2 && strcmp(argv[1], "--playback-test") == 0) return playbackTest();
+    if (argc == 2 && strcmp(argv[1], "--dave-service") == 0) return daveService();
     if (argc == 4 && strcmp(argv[1], "--key-package") == 0) return keyPackage(argv[2], argv[3]);
     if (argc == 1 || (argc == 2 && strcmp(argv[1], "--self-test") == 0)) return selfTest();
-    fprintf(stderr, "Usage: %s [--self-test|--dave-version|--capture-test|--playback-test|--key-package USER_ID GROUP_ID]\n", argv[0]);
+    fprintf(stderr, "Usage: %s [--self-test|--dave-version|--capture-test|--playback-test|--dave-service|--key-package USER_ID GROUP_ID]\n", argv[0]);
     return 64;
 }

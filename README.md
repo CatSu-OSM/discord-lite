@@ -69,6 +69,10 @@ second and report the captured data.
 Run `--playback-test` for a one-second 440 Hz speaker tone at the same format.
 The helper also exposes `--key-package USER_ID GROUP_ID`, which emits the
 hex-encoded MLS key package consumed by Discord Voice Opcode 26.
+For the app's 10.7+ DAVE control bridge, `--dave-service` keeps the MLS
+session alive over a newline-delimited stdin/stdout protocol. It supports
+initial key-package generation plus external-sender, proposal, commit, and
+welcome processing without loading libdave into the 10.6-compatible app.
 
 The helper's DAVE build uses the OS X Keychain to retain the device's signing
 identity. It is therefore a 10.7+ helper feature; the 10.6.8 text target does
