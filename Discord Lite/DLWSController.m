@@ -9,6 +9,7 @@
 #import "DLWSController.h"
 
 #include <arpa/inet.h>
+#include <netdb.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/time.h>
@@ -65,6 +66,43 @@ static NSData *DLDataFromByteArray(NSArray *values) {
         bytes[index] = (unsigned char)[value intValue];
     }
     return [NSData dataWithBytes:bytes length:sizeof(bytes)];
+}
+
+static NSDictionary *DLVoiceSTUNMappedAddress(int socketFD) {
+    struct hostent *host = gethostbyname("stun.l.google.com");
+    if (!host || host->h_length != sizeof(struct in_addr)) return nil;
+    struct sockaddr_in stunAddress;
+    memset(&stunAddress, 0, sizeof(stunAddress));
+    stunAddress.sin_family = AF_INET;
+    stunAddress.sin_port = htons(19302);
+    memcpy(&stunAddress.sin_addr, host->h_addr_list[0], sizeof(stunAddress.sin_addr));
+    unsigned char request[20] = { 0x00, 0x01, 0x00, 0x00, 0x21, 0x12, 0xA4, 0x42 };
+    for (NSUInteger index = 8; index < sizeof(request); index++) request[index] = (unsigned char)arc4random();
+    if (sendto(socketFD, request, sizeof(request), 0, (struct sockaddr *)&stunAddress, sizeof(stunAddress)) < 0) return nil;
+    unsigned char response[512];
+    ssize_t responseLength = recvfrom(socketFD, response, sizeof(response), 0, NULL, NULL);
+    if (responseLength < 20 || response[0] != 0x01 || response[1] != 0x01 ||
+        memcmp(response + 4, request + 4, 16) != 0) return nil;
+    size_t offset = 20;
+    while (offset + 4 <= (size_t)responseLength) {
+        unsigned short type = ((unsigned short)response[offset] << 8) | response[offset + 1];
+        unsigned short length = ((unsigned short)response[offset + 2] << 8) | response[offset + 3];
+        if (offset + 4 + length > (size_t)responseLength) break;
+        if ((type == 0x0020 || type == 0x0001) && length >= 8 && response[offset + 5] == 0x01) {
+            unsigned short port = ((unsigned short)response[offset + 6] << 8) | response[offset + 7];
+            struct in_addr address;
+            memcpy(&address, response + offset + 8, sizeof(address));
+            if (type == 0x0020) {
+                port ^= 0x2112;
+                uint32_t rawAddress = ntohl(address.s_addr) ^ 0x2112A442;
+                address.s_addr = htonl(rawAddress);
+            }
+            NSString *ip = [NSString stringWithUTF8String:inet_ntoa(address)];
+            if (ip) return [NSDictionary dictionaryWithObjectsAndKeys:ip, @"address", [NSNumber numberWithUnsignedShort:port], @"port", nil];
+        }
+        offset += 4 + ((length + 3) & ~3);
+    }
+    return nil;
 }
 
 static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
@@ -777,8 +815,25 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
         return;
     }
     if (responseLength < 70) {
-        NSLog(@"Voice UDP discovery did not receive a valid response.");
-        [self performSelectorOnMainThread:@selector(voiceUDPDiscoveryFailed:) withObject:@"Discord did not answer three UDP discovery probes from its Ready address." waitUntilDone:NO];
+        // Some older NATs forward the authenticated Discord probe but do not
+        // return its discovery response.  Reuse this UDP socket to learn the
+        // public mapping from STUN, then keep the exact Ready edge for media.
+        struct sockaddr disconnectedAddress;
+        memset(&disconnectedAddress, 0, sizeof(disconnectedAddress));
+        disconnectedAddress.sa_family = AF_UNSPEC;
+        connect(socketFD, &disconnectedAddress, sizeof(disconnectedAddress));
+        NSDictionary *stunResult = DLVoiceSTUNMappedAddress(socketFD);
+        if (stunResult) {
+            connect(socketFD, (struct sockaddr *)&serverAddress, sizeof(serverAddress));
+            NSMutableDictionary *result = [stunResult mutableCopy];
+            [result setObject:voiceServerIP forKey:@"server_ip"];
+            [self performSelectorOnMainThread:@selector(voiceUDPDiscoveryCompleted:) withObject:result waitUntilDone:NO];
+            [result release];
+            [pool release];
+            return;
+        }
+        NSLog(@"Voice UDP discovery and STUN mapping both received no valid response.");
+        [self performSelectorOnMainThread:@selector(voiceUDPDiscoveryFailed:) withObject:@"Discord did not answer UDP discovery, and the STUN fallback could not map this UDP socket." waitUntilDone:NO];
         close(socketFD);
         if (voiceUDPSocket == socketFD) voiceUDPSocket = -1;
         [pool release];
