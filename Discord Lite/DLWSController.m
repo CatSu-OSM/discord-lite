@@ -1057,6 +1057,9 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
     NSString *error = nil;
     if (opcode == 25) {
         [voiceHelper setExternalSenderPackage:payload error:&error];
+        if (!error && !voiceCapture) {
+            DLVoiceSetStatus(&voiceConnectionStatus, @"Voice connected; waiting for encrypted participant…");
+        }
     } else if (opcode == 27) {
         NSString *users = [[voiceClientIDs allObjects] componentsJoinedByString:@","];
         NSString *reply = [voiceHelper sendCommand:[NSString stringWithFormat:@"PROPOSALS %@ %@", DLHexStringFromData(payload), [users length] ? users : @"-"] error:&error];
