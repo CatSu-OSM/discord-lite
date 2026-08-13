@@ -156,7 +156,19 @@
         return;
     }
     keepsNewestMessageVisible = NO;
+    // Only an upward user gesture may request earlier history.  Layout,
+    // anchoring, and appended content also move the clip view, but they must
+    // never be mistaken for an attempt to read older messages.
+    if ([theEvent deltaY] > 0.0f) {
+        historyLoadRequested = YES;
+    }
     [super scrollWheel:theEvent];
+}
+
+-(BOOL)consumeHistoryLoadRequest {
+    BOOL requested = historyLoadRequested;
+    historyLoadRequested = NO;
+    return requested;
 }
 
 -(void)contentAppendDidFinish {
