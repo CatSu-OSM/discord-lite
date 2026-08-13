@@ -10,12 +10,10 @@
 #import "ChatItemViewController.h"
 #import "NSScroller+BGColor.h"
 
-@class ChatScrollView;
-
 @protocol ChatScrollViewDelegate <NSObject>
 @optional
 -(void)updatePendingAttachmentsWithFilePaths:(NSArray *)paths;
--(void)chatScrollViewReachedHistoryEdge:(ChatScrollView *)scrollView;
+-(void)chatScrollViewDidFinishAppendingContent;
 @end
 
 @interface ChatScrollView : NSScrollView {

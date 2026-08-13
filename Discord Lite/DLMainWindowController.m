@@ -1747,13 +1747,19 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
 }
 
 -(void)chatScrollViewBoundsDidChange:(NSNotification *)note {
+    NSClipView *scrolledClipView = [note object];
+    if ([chatScrollView.documentView bounds].size.height <= [scrolledClipView bounds].size.height + [scrolledClipView bounds].origin.y) {
+        if (!isLoadingMessages) {
+            isLoadingMessages = YES;
+            if ([[DLController sharedInstance] selectedChannel]) {
+                [[DLController sharedInstance] loadMessagesForChannel:[[DLController sharedInstance] selectedChannel] beforeMessage:lastMessage quantity:25];
+            }
+        }
+    }
 }
 
--(void)chatScrollViewReachedHistoryEdge:(ChatScrollView *)scrollView {
-    if (!isLoadingMessages && [[DLController sharedInstance] selectedChannel]) {
-        isLoadingMessages = YES;
-        [[DLController sharedInstance] loadMessagesForChannel:[[DLController sharedInstance] selectedChannel] beforeMessage:lastMessage quantity:25];
-    }
+-(void)chatScrollViewDidFinishAppendingContent {
+    isLoadingMessages = NO;
 }
 
 -(void)serversScrollViewBoundsDidChange:(NSNotification *)note {
@@ -1981,7 +1987,9 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
         [chatScrollView appendContent:views];
     }
     [views release];
-    isLoadingMessages = NO;
+    if (newChannel) {
+        isLoadingMessages = NO;
+    }
 }
 
 

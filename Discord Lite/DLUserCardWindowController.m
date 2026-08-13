@@ -1321,7 +1321,9 @@ static DLUserCardWindowController *sharedCard = nil;
     [self stopCardAnimation];
     isClosing = NO;
     cardOpensAboveAnchor = openingAbove;
-    BOOL shouldDisableMainScroll = !openingAbove;
+    // The card is a separate floating panel. Leave the chat scroll view active
+    // so opening a profile never makes the message list feel stuck.
+    BOOL shouldDisableMainScroll = NO;
     if (disablesMainViewScroll != shouldDisableMainScroll) {
         disablesMainViewScroll = shouldDisableMainScroll;
         [[NSNotificationCenter defaultCenter] postNotificationName:(disablesMainViewScroll ? DLUserCardMainScrollDisabledNotification : DLUserCardMainScrollEnabledNotification) object:self];

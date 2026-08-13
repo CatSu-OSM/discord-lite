@@ -148,15 +148,12 @@
         return;
     }
     keepsNewestMessageVisible = NO;
-    NSRect beforeScrollBounds = [[self contentView] bounds];
     [super scrollWheel:theEvent];
-    NSRect afterScrollBounds = [[self contentView] bounds];
-    CGFloat documentHeight = [[self documentView] bounds].size.height;
-    if (afterScrollBounds.origin.y > beforeScrollBounds.origin.y &&
-        documentHeight > afterScrollBounds.size.height &&
-        afterScrollBounds.origin.y + afterScrollBounds.size.height >= documentHeight - 1.0f &&
-        [delegate respondsToSelector:@selector(chatScrollViewReachedHistoryEdge:)]) {
-        [delegate chatScrollViewReachedHistoryEdge:self];
+}
+
+-(void)contentAppendDidFinish {
+    if ([delegate respondsToSelector:@selector(chatScrollViewDidFinishAppendingContent)]) {
+        [delegate chatScrollViewDidFinishAppendingContent];
     }
 }
 -(void)appendContent:(NSArray *)inContent {
@@ -193,6 +190,7 @@
         [self reflectScrolledClipView:clipView];
     }
     [self performSelector:@selector(screenResize) withObject:nil afterDelay:0.5];
+    [self performSelector:@selector(contentAppendDidFinish) withObject:nil afterDelay:0.55];
 }
 -(void)prependViewController:(ChatItemViewController *)vc {
     CGFloat expectedHeight = [vc expectedHeight];
