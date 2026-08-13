@@ -281,6 +281,7 @@ static void splitUserIDs(char *text, std::vector<const char *> *users) {
 static int daveService() {
     DAVESessionHandle session = NULL;
     DAVEEncryptorHandle encryptor = NULL;
+    std::map<std::string, DAVEDecryptorHandle> decryptors;
     std::string selfUserID;
     char line[32768];
     while (fgets(line, sizeof(line), stdin)) {
@@ -298,6 +299,8 @@ static int daveService() {
                 daveEncryptorDestroy(encryptor);
                 encryptor = NULL;
             }
+            for (std::map<std::string, DAVEDecryptorHandle>::iterator it = decryptors.begin(); it != decryptors.end(); ++it) daveDecryptorDestroy(it->second);
+            decryptors.clear();
             printResponse("OK");
             continue;
         }
@@ -315,6 +318,8 @@ static int daveService() {
                 daveEncryptorDestroy(encryptor);
                 encryptor = NULL;
             }
+            for (std::map<std::string, DAVEDecryptorHandle>::iterator it = decryptors.begin(); it != decryptors.end(); ++it) daveDecryptorDestroy(it->second);
+            decryptors.clear();
             session = daveSessionCreate(NULL, userID, daveFailure, NULL);
             if (!session) {
                 printResponse("ERROR session-create");
@@ -340,7 +345,7 @@ static int daveService() {
         }
         char *hex = strtok(NULL, " ");
         std::vector<uint8_t> bytes;
-        if (strcmp(command, "ACTIVATE") != 0 && strcmp(command, "ENCRYPT") != 0 && (!hex || !decodeHex(hex, &bytes))) {
+        if (strcmp(command, "ACTIVATE") != 0 && strcmp(command, "ENCRYPT") != 0 && strcmp(command, "DECRYPT") != 0 && (!hex || !decodeHex(hex, &bytes))) {
             printResponse("ERROR invalid-hex");
             continue;
         }
@@ -391,6 +396,8 @@ static int daveService() {
                 printResponse("ERROR invalid-ssrc");
                 continue;
             }
+            for (std::map<std::string, DAVEDecryptorHandle>::iterator it = decryptors.begin(); it != decryptors.end(); ++it) daveDecryptorDestroy(it->second);
+            decryptors.clear();
             DAVEKeyRatchetHandle ratchet = daveSessionGetKeyRatchet(session, selfUserID.c_str());
             if (!ratchet) {
                 printResponse("ERROR missing-sender-ratchet");
@@ -426,11 +433,47 @@ static int daveService() {
                 continue;
             }
             printHexResponse("ENCRYPTED", encrypted.data(), encryptedLength);
+        } else if (strcmp(command, "DECRYPT") == 0) {
+            char *remoteUserID = hex;
+            char *encryptedHex = strtok(NULL, " ");
+            std::vector<uint8_t> encrypted;
+            if (!remoteUserID || !*remoteUserID || !encryptedHex || !decodeHex(encryptedHex, &encrypted)) {
+                printResponse("ERROR invalid-decrypt");
+                continue;
+            }
+            DAVEDecryptorHandle decryptor = decryptors[remoteUserID];
+            if (!decryptor) {
+                DAVEKeyRatchetHandle ratchet = daveSessionGetKeyRatchet(session, remoteUserID);
+                if (!ratchet) {
+                    printResponse("ERROR missing-receiver-ratchet");
+                    continue;
+                }
+                decryptor = daveDecryptorCreate();
+                if (!decryptor) {
+                    daveKeyRatchetDestroy(ratchet);
+                    printResponse("ERROR decryptor-create");
+                    continue;
+                }
+                daveDecryptorTransitionToPassthroughMode(decryptor, false);
+                daveDecryptorTransitionToKeyRatchet(decryptor, ratchet);
+                daveKeyRatchetDestroy(ratchet);
+                decryptors[remoteUserID] = decryptor;
+            }
+            size_t plaintextLength = daveDecryptorGetMaxPlaintextByteSize(decryptor, DAVE_MEDIA_TYPE_AUDIO, encrypted.size());
+            std::vector<uint8_t> plaintext(plaintextLength);
+            DAVEDecryptorResultCode result = daveDecryptorDecrypt(decryptor, DAVE_MEDIA_TYPE_AUDIO, encrypted.data(), encrypted.size(),
+                                                                    plaintext.data(), plaintext.size(), &plaintextLength);
+            if (result != DAVE_DECRYPTOR_RESULT_CODE_SUCCESS) {
+                printResponse("ERROR decrypt-failed");
+                continue;
+            }
+            printHexResponse("DECRYPTED", plaintext.data(), plaintextLength);
         } else {
             printResponse("ERROR unknown-command");
         }
     }
     if (encryptor) daveEncryptorDestroy(encryptor);
+    for (std::map<std::string, DAVEDecryptorHandle>::iterator it = decryptors.begin(); it != decryptors.end(); ++it) daveDecryptorDestroy(it->second);
     if (session) daveSessionDestroy(session);
     return 0;
 }

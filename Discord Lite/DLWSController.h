@@ -16,6 +16,7 @@
 #import "DLVoiceHelper.h"
 #import "DLVoiceMedia.h"
 #import "DLVoiceCapture.h"
+#import "DLVoicePlayback.h"
 
 #include <stdint.h>
 
@@ -101,6 +102,8 @@ typedef enum {
     uint32_t voiceRTPTimestamp;
     DLVoiceCapture *voiceCapture;
     BOOL voiceIsSpeaking;
+    DLVoicePlayback *voicePlayback;
+    NSMutableDictionary *voiceUsersBySSRC;
 }
 
 +(DLWSController *)sharedInstance;

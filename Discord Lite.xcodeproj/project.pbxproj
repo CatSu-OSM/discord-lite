@@ -103,6 +103,7 @@
 		D1A000012F00000100000007 /* libsodium.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D1A000012F00000100000005 /* libsodium.a */; };
 		D1A000012F00000100000009 /* CoreAudio.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D1A000012F00000100000008 /* CoreAudio.framework */; };
 		D1A000012F00000100000041 /* DLVoiceCapture.m in Sources */ = {isa = PBXBuildFile; fileRef = D1A000012F00000100000043 /* DLVoiceCapture.m */; };
+		D1A000012F00000100000051 /* DLVoicePlayback.m in Sources */ = {isa = PBXBuildFile; fileRef = D1A000012F00000100000053 /* DLVoicePlayback.m */; };
 		D1A000012F00000100000044 /* AudioToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D1A000012F00000100000045 /* AudioToolbox.framework */; };
 		D1A000012F00000100000021 /* DiscordLiteVoiceHelper in Resources */ = {isa = PBXBuildFile; fileRef = D1A000012F00000100000022 /* DiscordLiteVoiceHelper */; };
 		87DA40172739F4DB007E7455 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = 87DA40162739F4DB007E7455 /* AppIcon.icns */; };
@@ -319,6 +320,8 @@
 		D1A000012F00000100000003 /* DLVoiceMedia.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = DLVoiceMedia.m; sourceTree = "<group>"; };
 		D1A000012F00000100000042 /* DLVoiceCapture.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DLVoiceCapture.h; sourceTree = "<group>"; };
 		D1A000012F00000100000043 /* DLVoiceCapture.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = DLVoiceCapture.m; sourceTree = "<group>"; };
+		D1A000012F00000100000052 /* DLVoicePlayback.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DLVoicePlayback.h; sourceTree = "<group>"; };
+		D1A000012F00000100000053 /* DLVoicePlayback.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = DLVoicePlayback.m; sourceTree = "<group>"; };
 		D1A000012F00000100000030 /* DLVoiceHelper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DLVoiceHelper.h; sourceTree = "<group>"; };
 		D1A000012F00000100000032 /* DLVoiceHelper.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = DLVoiceHelper.m; sourceTree = "<group>"; };
 		D1A000012F00000100000004 /* libopus.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = VoiceDependencies/libopus.a; sourceTree = "<group>"; };
@@ -488,6 +491,8 @@
 				D1A000012F00000100000003 /* DLVoiceMedia.m */,
 				D1A000012F00000100000042 /* DLVoiceCapture.h */,
 				D1A000012F00000100000043 /* DLVoiceCapture.m */,
+				D1A000012F00000100000052 /* DLVoicePlayback.h */,
+				D1A000012F00000100000053 /* DLVoicePlayback.m */,
 				876DBDFF2729234A008682BC /* DLUtil.h */,
 				876DBE002729234A008682BC /* DLUtil.m */,
 				87994C682753450300A27326 /* DLTextParser.h */,
@@ -893,6 +898,7 @@
 				87DA400C2739DD58007E7455 /* DLAudioPlayer.m in Sources */,
 				D1A000012F00000100000001 /* DLVoiceMedia.m in Sources */,
 				D1A000012F00000100000041 /* DLVoiceCapture.m in Sources */,
+				D1A000012F00000100000051 /* DLVoicePlayback.m in Sources */,
 				D1A000012F00000100000031 /* DLVoiceHelper.m in Sources */,
 				87C6E69A273052B100090639 /* ChannelItemViewController.m in Sources */,
 				87B8863F2CEF05AC005117BE /* AsyncHTTPRequestSettings.m in Sources */,

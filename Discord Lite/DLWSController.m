@@ -83,6 +83,7 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     sequenceNumber = 0;
     voiceUDPSocket = -1;
     voiceClientIDs = [[NSMutableSet alloc] init];
+    voiceUsersBySSRC = [[NSMutableDictionary alloc] init];
     return self;
 }
 
@@ -161,6 +162,10 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     [voiceCapture stop];
     [voiceCapture release];
     voiceCapture = nil;
+    [voicePlayback stop];
+    [voicePlayback release];
+    voicePlayback = nil;
+    [voiceUsersBySSRC removeAllObjects];
     voiceIsSpeaking = NO;
     voiceDAVEEnabled = NO;
     voiceConnectionStarting = NO;
@@ -265,6 +270,10 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     [voiceCapture stop];
     [voiceCapture release];
     voiceCapture = nil;
+    [voicePlayback stop];
+    [voicePlayback release];
+    voicePlayback = nil;
+    [voiceUsersBySSRC removeAllObjects];
     voiceIsSpeaking = NO;
     voiceDAVEEnabled = NO;
     [voiceClientIDs removeAllObjects];
@@ -431,6 +440,53 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
     [self sendVoiceSpeaking];
 }
 
+-(void)startVoiceUDPReceiveThread {
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+    int socketFD = voiceUDPSocket;
+    struct timeval timeout;
+    timeout.tv_sec = 1;
+    timeout.tv_usec = 0;
+    setsockopt(socketFD, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+    while (socketFD >= 0 && voiceUDPSocket == socketFD) {
+        unsigned char buffer[4096];
+        ssize_t length = recvfrom(socketFD, buffer, sizeof(buffer), 0, NULL, NULL);
+        if (length <= 0) continue;
+        NSData *packet = [NSData dataWithBytes:buffer length:(NSUInteger)length];
+        [self performSelectorOnMainThread:@selector(voiceUDPPacketReceived:) withObject:packet waitUntilDone:NO];
+    }
+    [pool release];
+}
+
+-(void)voiceUDPPacketReceived:(NSData *)packet {
+    if (!voiceMedia || [packet length] < 12) return;
+    const unsigned char *bytes = [packet bytes];
+    uint32_t networkSSRC = 0;
+    memcpy(&networkSSRC, bytes + 8, sizeof(networkSSRC));
+    NSString *remoteUserID = [voiceUsersBySSRC objectForKey:[NSString stringWithFormat:@"%u", ntohl(networkSSRC)]];
+    if (![remoteUserID length]) return;
+    NSError *transportError = nil;
+    NSData *daveFrame = [voiceMedia decryptVoicePacket:packet error:&transportError];
+    if (!daveFrame) return;
+    NSString *helperError = nil;
+    NSString *reply = [voiceHelper sendCommand:[NSString stringWithFormat:@"DECRYPT %@ %@", remoteUserID, DLHexStringFromData(daveFrame)] error:&helperError];
+    if (![reply hasPrefix:@"DECRYPTED "]) return;
+    NSData *opus = DLDataFromHexString([reply substringFromIndex:[@"DECRYPTED " length]]);
+    NSError *opusError = nil;
+    NSData *pcm = [voiceMedia decodeOpus:opus frameCount:960 error:&opusError];
+    if (!pcm) return;
+    if (!voicePlayback) {
+        voicePlayback = [[DLVoicePlayback alloc] init];
+        NSError *playbackError = nil;
+        if (![voicePlayback start:&playbackError]) {
+            NSLog(@"Voice speaker start failed: %@", playbackError);
+            [voicePlayback release];
+            voicePlayback = nil;
+            return;
+        }
+    }
+    [voicePlayback enqueuePCM:pcm];
+}
+
 -(void)sendVoiceHeartbeat {
     NSDictionary *heartbeatData = [NSDictionary dictionaryWithObjectsAndKeys:
                                    [NSNumber numberWithLongLong:[[NSDate date] timeIntervalSince1970] * 1000], @"t",
@@ -496,6 +552,7 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
             } else {
                 voiceRTPSequence = 0;
                 voiceRTPTimestamp = 0;
+                [NSThread detachNewThreadSelector:@selector(startVoiceUDPReceiveThread) toTarget:self withObject:nil];
             }
         }
         if (voiceDAVEEnabled && [[data objectForKey:@"dave_protocol_version"] intValue] > 0) [self sendDAVEKeyPackage];
@@ -505,6 +562,10 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
     } else if (opcode == 13) {
         NSString *clientID = [data objectForKey:@"user_id"];
         if ([clientID length]) [voiceClientIDs removeObject:clientID];
+    } else if (opcode == 5) {
+        NSString *clientID = [data objectForKey:@"user_id"];
+        NSNumber *ssrc = [data objectForKey:@"ssrc"];
+        if ([clientID length] && ssrc) [voiceUsersBySSRC setObject:clientID forKey:[ssrc stringValue]];
     } else if (opcode == 22 && voiceDAVEEnabled && [[data objectForKey:@"protocol_version"] intValue] > 0) {
         NSString *helperError = nil;
         NSString *reply = [voiceHelper sendCommand:[NSString stringWithFormat:@"ACTIVATE %u", voiceSSRC] error:&helperError];
