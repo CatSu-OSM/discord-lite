@@ -18,5 +18,14 @@ endif()
 set(VCPKG_OSX_SYSROOT "$ENV{DISCORD_LITE_LEGACY_SDK}")
 
 set(VCPKG_C_FLAGS "-mmacosx-version-min=10.7")
-set(VCPKG_CXX_FLAGS "-mmacosx-version-min=10.7 -stdlib=libc++")
+set(VCPKG_CXX_FLAGS "-mmacosx-version-min=10.7 -stdlib=libc++ -D_LIBCPP_DISABLE_AVAILABILITY")
 set(VCPKG_LINKER_FLAGS "-mmacosx-version-min=10.7 -stdlib=libc++")
+
+# vcpkg's CMake port helper does not propagate VCPKG_CXX_FLAGS to every
+# third-party CMake project.  Force libc++ into CMake's own cache variables so
+# C++17 headers resolve against the Lion-compatible libc++ instead of the
+# system libstdc++ headers.
+set(VCPKG_CMAKE_CONFIGURE_OPTIONS
+    "-DCMAKE_CXX_FLAGS:STRING=-mmacosx-version-min=10.7 -stdlib=libc++ -D_LIBCPP_DISABLE_AVAILABILITY"
+    "-DCMAKE_EXE_LINKER_FLAGS:STRING=-mmacosx-version-min=10.7 -stdlib=libc++"
+    "-DCMAKE_SHARED_LINKER_FLAGS:STRING=-mmacosx-version-min=10.7 -stdlib=libc++")

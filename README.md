@@ -56,7 +56,26 @@ The project’s interface is code-built, so no XIB conversion or newer Interface
 - Mac OS X 10.6.8 Snow Leopard on Intel (`i386` or `x86_64`)
 - 256 MB RAM
 
-The available features depend on Discord’s current API behavior and the target operating system. The planned voice dependency binaries must also be compiled with the same 10.6 Intel deployment target.
+The available features depend on Discord’s current API behavior and the target operating system. Text features target 10.6.8; modern Discord voice encryption needs C++17/libc++ and therefore has a separate 10.7 Intel baseline.
+
+## Building the native voice encryption dependency
+
+Discord's current voice encryption uses `libdave`.  The source in
+`voice-build/` contains the fixed i386 Lion vcpkg triplet and an invocation
+script.  Build it on a newer Intel Mac using an extracted `MacOSX10.7.sdk`:
+
+```sh
+export DISCORD_LITE_LEGACY_SDK=/path/to/MacOSX10.7.sdk
+export LIBDAVE_SOURCE_DIR=/path/to/libdave/cpp
+export PATH=/path/to/modern-cmake/bin:$PATH
+sh voice-build/configure-libdave-i386-lion.sh
+cmake --build "$LIBDAVE_SOURCE_DIR/build-i386-lion" --target libdave
+```
+
+This produces `build-i386-lion/libdave.a`, a static i386 archive suitable for
+OS X 10.7.  It is a build prerequisite only: the client still needs the voice
+WebSocket, UDP/RTP, Opus, microphone, and output integration before voice chat
+is usable.
 
 ## Current functional state
 
