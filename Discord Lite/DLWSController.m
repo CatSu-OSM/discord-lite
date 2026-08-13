@@ -615,10 +615,6 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
         if (voiceHeartbeatTimer) {
             [voiceHeartbeatTimer invalidate];
         }
-        // Voice servers use the heartbeat to establish liveness.  Do not wait
-        // a whole interval before the first one: the UDP allocation that
-        // follows Identify must belong to an already-live gateway session.
-        [self sendVoiceHeartbeat];
         voiceHeartbeatTimer = [NSTimer scheduledTimerWithTimeInterval:voiceHeartbeatInterval / 1000.0
                                                                 target:self selector:@selector(sendVoiceHeartbeat)
                                                               userInfo:nil repeats:YES];
