@@ -575,7 +575,6 @@ static NSComparisonResult memberListRoleSort(id a, id b, void *context);
     [memberListView setFrame:panelFrame];
     [memberListHeaderLabel setFrame:NSMakeRect(12.0f, panelFrame.size.height - 30.0f, MEMBER_LIST_WIDTH - 24.0f, 18.0f)];
     [memberListScrollView setFrame:NSMakeRect(0.0f, 0.0f, MEMBER_LIST_WIDTH, panelFrame.size.height - 38.0f)];
-    [chatScrollView screenResize];
 }
 
 -(NSArray *)displayableMembersForServer:(DLServer *)server {
@@ -1653,10 +1652,20 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
 
 -(void)windowDidResize:(NSNotification *)notification {
     [self captureCurrentFullContentFrames];
-    [self updateTextViewSizing];
     if (memberListVisible) {
-        [self renderMemberListForServer:[[DLController sharedInstance] selectedServer]];
+        [self applyMemberListLayout];
     }
+    // Resizing can emit many notifications per second.  Rebuilding the member
+    // list and relaying out every chat item for each one makes a horizontal
+    // drag stall and can leave the side panel mid-rebuild.  Keep the existing
+    // member views in place, then perform one text reflow after the drag ends.
+    [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(finishWindowResizeLayout) object:nil];
+    [self performSelector:@selector(finishWindowResizeLayout) withObject:nil afterDelay:0.12];
+}
+
+-(void)finishWindowResizeLayout {
+    [self updateTextViewSizing];
+    [chatScrollView screenResize];
 }
 
 -(void)updateTypingStatus {
