@@ -7,6 +7,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 // Xcode 4's Lion libc++ predates std::variant. The prebuilt DAVE stack uses
 // this C++17 exception ABI, so provide the two symbols it needs.
@@ -203,6 +204,36 @@ static int selfTest() {
     return 0;
 }
 
+static void printHex(const uint8_t *data, size_t length) {
+    static const char hex[] = "0123456789abcdef";
+    for (size_t index = 0; index < length; index++) {
+        putchar(hex[data[index] >> 4]);
+        putchar(hex[data[index] & 15]);
+    }
+    putchar('\n');
+}
+
+static int keyPackage(const char *userID, const char *groupID) {
+    char *end = NULL;
+    const unsigned long long group = strtoull(groupID, &end, 10);
+    if (!userID[0] || !groupID[0] || !end || *end) return 15;
+    DAVESessionHandle session = daveSessionCreate(NULL, userID, daveFailure, NULL);
+    if (!session) return 16;
+    daveSessionInit(session, daveMaxSupportedProtocolVersion(), (uint64_t)group, userID);
+    uint8_t *package = NULL;
+    size_t length = 0;
+    daveSessionGetMarshalledKeyPackage(session, &package, &length);
+    if (!package || !length) {
+        if (package) daveFree(package);
+        daveSessionDestroy(session);
+        return 17;
+    }
+    printHex(package, length);
+    daveFree(package);
+    daveSessionDestroy(session);
+    return 0;
+}
+
 int main(int argc, char **argv) {
     if (argc == 2 && strcmp(argv[1], "--dave-version") == 0) {
         printf("%u\n", daveMaxSupportedProtocolVersion());
@@ -210,7 +241,8 @@ int main(int argc, char **argv) {
     }
     if (argc == 2 && strcmp(argv[1], "--capture-test") == 0) return captureTest();
     if (argc == 2 && strcmp(argv[1], "--playback-test") == 0) return playbackTest();
+    if (argc == 4 && strcmp(argv[1], "--key-package") == 0) return keyPackage(argv[2], argv[3]);
     if (argc == 1 || (argc == 2 && strcmp(argv[1], "--self-test") == 0)) return selfTest();
-    fprintf(stderr, "Usage: %s [--self-test|--dave-version|--capture-test|--playback-test]\n", argv[0]);
+    fprintf(stderr, "Usage: %s [--self-test|--dave-version|--capture-test|--playback-test|--key-package USER_ID GROUP_ID]\n", argv[0]);
     return 64;
 }

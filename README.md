@@ -67,6 +67,8 @@ Run `voice-helper/build/DiscordLiteVoiceHelper --capture-test` to open the
 default microphone at Discord's required 48 kHz stereo PCM format for one
 second and report the captured data.
 Run `--playback-test` for a one-second 440 Hz speaker tone at the same format.
+The helper also exposes `--key-package USER_ID GROUP_ID`, which emits the
+hex-encoded MLS key package consumed by Discord Voice Opcode 26.
 
 The helper's DAVE build uses the OS X Keychain to retain the device's signing
 identity. It is therefore a 10.7+ helper feature; the 10.6.8 text target does
