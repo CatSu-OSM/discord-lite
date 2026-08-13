@@ -52,6 +52,12 @@ typedef enum {
 -(void)wsDidReceiveMemberData:(NSArray *)memberData forServerWithID:(NSString *)serverID;
 -(void)wsMessageWithID:(NSString *)messageID wasUpdatedWithData:(NSDictionary *)data;
 -(void)wsMessageWithIDWasDeleted:(NSString *)messageID;
+-(void)wsVoiceConnectionReadyForGuildID:(NSString *)guildID
+                              channelID:(NSString *)channelID
+                              sessionID:(NSString *)voiceSessionID
+                               endpoint:(NSString *)endpoint
+                                  token:(NSString *)voiceToken
+                                 userID:(NSString *)userID;
 @end
 
 @interface DLWSController : NSObject {
@@ -66,6 +72,12 @@ typedef enum {
     int sequenceNumber;
     BOOL didReconnect;
     BOOL didResume;
+    NSString *userID;
+    NSString *pendingVoiceGuildID;
+    NSString *pendingVoiceChannelID;
+    NSString *pendingVoiceSessionID;
+    NSString *pendingVoiceEndpoint;
+    NSString *pendingVoiceToken;
 }
 
 +(DLWSController *)sharedInstance;

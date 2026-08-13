@@ -14,6 +14,10 @@ static NSMutableData* receivedWSData;
 
 static DLWSController* sharedObject = nil;
 
+static BOOL DLVoiceStringIsUsable(id value) {
+    return value && value != [NSNull null] && [value isKindOfClass:[NSString class]] && [value length] > 0;
+}
+
 static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     if (!receivedWSData) {
         receivedWSData = [[NSMutableData alloc] init];
@@ -165,7 +169,19 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
         return;
     }
 
-    // Discord uses a gateway Voice State Update to join (or move between) voice channels.
+    // Credentials are per join. Never reuse a voice token/session from a
+    // previous channel, even when Discord returns the same endpoint.
+    [pendingVoiceGuildID release];
+    pendingVoiceGuildID = [[s serverID] retain];
+    [pendingVoiceChannelID release];
+    pendingVoiceChannelID = [[c channelID] retain];
+    [pendingVoiceSessionID release];
+    pendingVoiceSessionID = nil;
+    [pendingVoiceEndpoint release];
+    pendingVoiceEndpoint = nil;
+    [pendingVoiceToken release];
+    pendingVoiceToken = nil;
+
     // The media connection is negotiated separately after the gateway confirms this state.
     NSMutableDictionary *data = [[NSMutableDictionary alloc] init];
     [data setObject:[s serverID] forKey:@"guild_id"];
@@ -181,6 +197,19 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
 
     [request release];
     [data release];
+}
+
+-(void)notifyVoiceConnectionIfReady {
+    if (!DLVoiceStringIsUsable(pendingVoiceGuildID) || !DLVoiceStringIsUsable(pendingVoiceChannelID) ||
+        !DLVoiceStringIsUsable(pendingVoiceSessionID) || !DLVoiceStringIsUsable(pendingVoiceEndpoint) ||
+        !DLVoiceStringIsUsable(pendingVoiceToken) || !DLVoiceStringIsUsable(userID)) {
+        return;
+    }
+    if ([delegate respondsToSelector:@selector(wsVoiceConnectionReadyForGuildID:channelID:sessionID:endpoint:token:userID:)]) {
+        [delegate wsVoiceConnectionReadyForGuildID:pendingVoiceGuildID channelID:pendingVoiceChannelID
+                                         sessionID:pendingVoiceSessionID endpoint:pendingVoiceEndpoint
+                                            token:pendingVoiceToken userID:userID];
+    }
 }
 
 -(void)queryServer:(DLServer *)s forMembersContainingUsername:(NSString *)username {
@@ -213,6 +242,8 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
             } else if ([type isEqualToString:@"READY"]) {
                 NSDictionary *wsData = [res objectForKey:@kWSData];
                 sessionID = [[wsData objectForKey:@"session_id"] retain];
+                [userID release];
+                userID = [[[wsData objectForKey:@"user"] objectForKey:@"id"] retain];
                 [delegate wsDidReceiveServerData:[wsData objectForKey:@"guilds"]];
                 [delegate wsDidReceiveUserSettingsData:[wsData objectForKey:@"user_settings"]];
                 [delegate wsDidReceiveUserData:[wsData objectForKey:@"user"]];
@@ -249,6 +280,26 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
                 NSDictionary *wsData = [res objectForKey:@kWSData];
                 NSString *messageID = [wsData objectForKey:@"id"];
                 [delegate wsMessageWithIDWasDeleted:messageID];
+            } else if ([type isEqualToString:@"VOICE_STATE_UPDATE"]) {
+                NSDictionary *voiceData = [res objectForKey:@kWSData];
+                // Voice State Updates for every member share this gateway.
+                // Only ours contains the session ID we may use to identify.
+                if ([[voiceData objectForKey:@"guild_id"] isEqualToString:pendingVoiceGuildID] &&
+                    [[voiceData objectForKey:@"channel_id"] isEqualToString:pendingVoiceChannelID] &&
+                    [[voiceData objectForKey:@"user_id"] isEqualToString:userID]) {
+                    [pendingVoiceSessionID release];
+                    pendingVoiceSessionID = [[voiceData objectForKey:@"session_id"] retain];
+                    [self notifyVoiceConnectionIfReady];
+                }
+            } else if ([type isEqualToString:@"VOICE_SERVER_UPDATE"]) {
+                NSDictionary *voiceData = [res objectForKey:@kWSData];
+                if ([[voiceData objectForKey:@"guild_id"] isEqualToString:pendingVoiceGuildID]) {
+                    [pendingVoiceEndpoint release];
+                    pendingVoiceEndpoint = [[voiceData objectForKey:@"endpoint"] retain];
+                    [pendingVoiceToken release];
+                    pendingVoiceToken = [[voiceData objectForKey:@"token"] retain];
+                    [self notifyVoiceConnectionIfReady];
+                }
             }
             break;
         }
