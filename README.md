@@ -63,6 +63,10 @@ Discord's DAVE encryption library and CoreAudio out of the Snow-Leopard
 application target. Its bundled dependencies build a universal i386/x86_64
 `DiscordLiteVoiceHelper`; run `sh voice-helper/build-lion-helper.sh` on Lion
 to build and exercise its DAVE and audio-device self-test.
+Run `voice-helper/build/DiscordLiteVoiceHelper --capture-test` to open the
+default microphone at Discord's required 48 kHz stereo PCM format for one
+second and report the captured data.
+Run `--playback-test` for a one-second 440 Hz speaker tone at the same format.
 
 The helper's DAVE build uses the OS X Keychain to retain the device's signing
 identity. It is therefore a 10.7+ helper feature; the 10.6.8 text target does

@@ -1,8 +1,10 @@
 // Standalone 10.7+ Intel helper for Discord Lite voice media.
 // Keep this out of the 10.6-targeted Cocoa application: DAVE requires libc++.
 #include <CoreAudio/CoreAudio.h>
+#include <AudioToolbox/AudioQueue.h>
 #include <dave/dave.h>
 #include <exception>
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -33,6 +35,129 @@ static bool defaultDevice(const AudioObjectPropertySelector selector, AudioDevic
     AudioObjectPropertyAddress address = { selector, kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMaster };
     UInt32 size = sizeof(*device);
     return AudioObjectGetPropertyData(kAudioObjectSystemObject, &address, 0, NULL, &size, device) == noErr && *device != kAudioObjectUnknown;
+}
+
+struct CaptureTestState {
+    unsigned long buffers;
+    unsigned long bytes;
+};
+
+static void capturedPCM(void *userData, AudioQueueRef queue, AudioQueueBufferRef buffer,
+                        const AudioTimeStamp *, UInt32, const AudioStreamPacketDescription *) {
+    CaptureTestState *state = static_cast<CaptureTestState *>(userData);
+    state->buffers++;
+    state->bytes += buffer->mAudioDataByteSize;
+    buffer->mAudioDataByteSize = buffer->mAudioDataBytesCapacity;
+    AudioQueueEnqueueBuffer(queue, buffer, 0, NULL);
+}
+
+static int captureTest() {
+    AudioStreamBasicDescription format;
+    memset(&format, 0, sizeof(format));
+    format.mSampleRate = 48000;
+    format.mFormatID = kAudioFormatLinearPCM;
+    format.mFormatFlags = kLinearPCMFormatFlagIsSignedInteger | kLinearPCMFormatFlagIsPacked;
+    format.mBytesPerPacket = 4;
+    format.mFramesPerPacket = 1;
+    format.mBytesPerFrame = 4;
+    format.mChannelsPerFrame = 2;
+    format.mBitsPerChannel = 16;
+
+    CaptureTestState state = { 0, 0 };
+    AudioQueueRef queue = NULL;
+    if (AudioQueueNewInput(&format, capturedPCM, &state, CFRunLoopGetCurrent(),
+                           kCFRunLoopCommonModes, 0, &queue) != noErr) {
+        fprintf(stderr, "Unable to open a 48 kHz stereo microphone stream.\n");
+        return 7;
+    }
+    for (int index = 0; index < 3; index++) {
+        AudioQueueBufferRef buffer = NULL;
+        if (AudioQueueAllocateBuffer(queue, 3840, &buffer) != noErr) {
+            AudioQueueDispose(queue, true);
+            fprintf(stderr, "Unable to allocate microphone buffers.\n");
+            return 8;
+        }
+        buffer->mAudioDataByteSize = buffer->mAudioDataBytesCapacity;
+        AudioQueueEnqueueBuffer(queue, buffer, 0, NULL);
+    }
+    if (AudioQueueStart(queue, NULL) != noErr) {
+        AudioQueueDispose(queue, true);
+        fprintf(stderr, "Unable to start the microphone.\n");
+        return 9;
+    }
+    CFRunLoopRunInMode(kCFRunLoopDefaultMode, 1.0, false);
+    AudioQueueStop(queue, true);
+    AudioQueueDispose(queue, true);
+    if (state.buffers == 0 || state.bytes == 0) {
+        fprintf(stderr, "The microphone produced no PCM data.\n");
+        return 10;
+    }
+    printf("Captured %lu bytes of 48 kHz stereo PCM in %lu buffers\n", state.bytes, state.buffers);
+    return 0;
+}
+
+struct PlaybackTestState {
+    long framesRemaining;
+    double phase;
+    unsigned long buffers;
+};
+
+static void playTone(void *userData, AudioQueueRef queue, AudioQueueBufferRef buffer) {
+    PlaybackTestState *state = static_cast<PlaybackTestState *>(userData);
+    const UInt32 frames = buffer->mAudioDataBytesCapacity / 4;
+    short *samples = static_cast<short *>(buffer->mAudioData);
+    for (UInt32 frame = 0; frame < frames; frame++) {
+        short sample = 0;
+        if (state->framesRemaining > 0) {
+            sample = static_cast<short>(sin(state->phase) * 8000.0);
+            state->phase += 2.0 * M_PI * 440.0 / 48000.0;
+            state->framesRemaining--;
+        }
+        samples[frame * 2] = sample;
+        samples[frame * 2 + 1] = sample;
+    }
+    buffer->mAudioDataByteSize = frames * 4;
+    state->buffers++;
+    AudioQueueEnqueueBuffer(queue, buffer, 0, NULL);
+}
+
+static int playbackTest() {
+    AudioStreamBasicDescription format;
+    memset(&format, 0, sizeof(format));
+    format.mSampleRate = 48000;
+    format.mFormatID = kAudioFormatLinearPCM;
+    format.mFormatFlags = kLinearPCMFormatFlagIsSignedInteger | kLinearPCMFormatFlagIsPacked;
+    format.mBytesPerPacket = 4;
+    format.mFramesPerPacket = 1;
+    format.mBytesPerFrame = 4;
+    format.mChannelsPerFrame = 2;
+    format.mBitsPerChannel = 16;
+
+    PlaybackTestState state = { 48000, 0.0, 0 };
+    AudioQueueRef queue = NULL;
+    if (AudioQueueNewOutput(&format, playTone, &state, CFRunLoopGetCurrent(),
+                            kCFRunLoopCommonModes, 0, &queue) != noErr) {
+        fprintf(stderr, "Unable to open a 48 kHz stereo speaker stream.\n");
+        return 11;
+    }
+    for (int index = 0; index < 3; index++) {
+        AudioQueueBufferRef buffer = NULL;
+        if (AudioQueueAllocateBuffer(queue, 3840, &buffer) != noErr) {
+            AudioQueueDispose(queue, true);
+            return 12;
+        }
+        playTone(&state, queue, buffer);
+    }
+    if (AudioQueueStart(queue, NULL) != noErr) {
+        AudioQueueDispose(queue, true);
+        return 13;
+    }
+    CFRunLoopRunInMode(kCFRunLoopDefaultMode, 1.2, false);
+    AudioQueueStop(queue, true);
+    AudioQueueDispose(queue, true);
+    if (state.buffers < 3) return 14;
+    printf("Played a 48 kHz stereo 440 Hz tone through %lu buffers\n", state.buffers);
+    return 0;
 }
 
 static int selfTest() {
@@ -83,7 +208,9 @@ int main(int argc, char **argv) {
         printf("%u\n", daveMaxSupportedProtocolVersion());
         return 0;
     }
+    if (argc == 2 && strcmp(argv[1], "--capture-test") == 0) return captureTest();
+    if (argc == 2 && strcmp(argv[1], "--playback-test") == 0) return playbackTest();
     if (argc == 1 || (argc == 2 && strcmp(argv[1], "--self-test") == 0)) return selfTest();
-    fprintf(stderr, "Usage: %s [--self-test|--dave-version]\n", argv[0]);
+    fprintf(stderr, "Usage: %s [--self-test|--dave-version|--capture-test|--playback-test]\n", argv[0]);
     return 64;
 }

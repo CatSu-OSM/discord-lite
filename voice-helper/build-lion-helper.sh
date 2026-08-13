@@ -14,7 +14,7 @@ for ARCH in i386 x86_64; do
     "$CXX" -arch "$ARCH" -std=c++11 -stdlib=libc++ -mmacosx-version-min=10.7 -isysroot "$SDK" \
         -I"$INCLUDE" "$SCRIPT_DIR/DiscordLiteVoiceHelper.cpp" -L"$LIB" \
         -ldave -lmlspp -lmls_ds -ltls_syntax -lbytes -lhpke -lcrypto -lc++ \
-        -framework CoreAudio -framework CoreFoundation -framework Security \
+        -framework AudioToolbox -framework CoreAudio -framework CoreFoundation -framework Security \
         -o "$OUT/DiscordLiteVoiceHelper-$ARCH"
 done
 lipo -create "$OUT/DiscordLiteVoiceHelper-i386" "$OUT/DiscordLiteVoiceHelper-x86_64" \
