@@ -17,6 +17,7 @@
 -(void)dealloc {
     [self stop];
     [pendingOutput release];
+    [initialKeyPackage release];
     [super dealloc];
 }
 
@@ -57,7 +58,13 @@
         [self stop];
         return NO;
     }
+    [initialKeyPackage release];
+    initialKeyPackage = [[response substringFromIndex:[@"KEY_PACKAGE " length]] retain];
     return YES;
+}
+
+-(NSString *)initialKeyPackage {
+    return initialKeyPackage;
 }
 
 -(NSString *)sendCommand:(NSString *)command error:(NSString **)error {
@@ -103,6 +110,8 @@
     [task release];
     task = nil;
     [pendingOutput setLength:0];
+    [initialKeyPackage release];
+    initialKeyPackage = nil;
 }
 
 @end

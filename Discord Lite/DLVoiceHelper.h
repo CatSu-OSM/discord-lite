@@ -13,9 +13,11 @@
     NSPipe *input;
     NSFileHandle *output;
     NSMutableData *pendingOutput;
+    NSString *initialKeyPackage;
 }
 
 -(BOOL)startForUserID:(NSString *)userID groupID:(NSString *)groupID error:(NSString **)error;
+-(NSString *)initialKeyPackage;
 -(NSString *)sendCommand:(NSString *)command error:(NSString **)error;
 -(void)stop;
 

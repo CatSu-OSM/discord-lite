@@ -18,6 +18,7 @@
 
 static NSMutableData* receivedWSData;
 static NSMutableData* receivedVoiceWSData;
+static BOOL receivedVoiceWSIsBinary;
 
 static DLWSController* sharedObject = nil;
 
@@ -25,12 +26,32 @@ static BOOL DLVoiceStringIsUsable(id value) {
     return value && value != [NSNull null] && [value isKindOfClass:[NSString class]] && [value length] > 0;
 }
 
+static NSString *DLHexStringFromData(NSData *data) {
+    const unsigned char *bytes = [data bytes];
+    NSMutableString *result = [NSMutableString stringWithCapacity:[data length] * 2];
+    for (NSUInteger index = 0; index < [data length]; index++) [result appendFormat:@"%02x", bytes[index]];
+    return result;
+}
+
+static NSData *DLDataFromHexString(NSString *hex) {
+    if (!hex || ([hex length] & 1)) return nil;
+    NSMutableData *data = [NSMutableData dataWithCapacity:[hex length] / 2];
+    for (NSUInteger index = 0; index < [hex length]; index += 2) {
+        unsigned int value = 0;
+        NSScanner *scanner = [NSScanner scannerWithString:[hex substringWithRange:NSMakeRange(index, 2)]];
+        if (![scanner scanHexInt:&value]) return nil;
+        unsigned char byte = (unsigned char)value;
+        [data appendBytes:&byte length:1];
+    }
+    return data;
+}
+
 static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     if (!receivedWSData) {
         receivedWSData = [[NSMutableData alloc] init];
     }
     CURL *easy = p;
-    struct curl_ws_frame *frame = curl_ws_meta(easy);
+    const struct curl_ws_frame *frame = curl_ws_meta(easy);
     
     [receivedWSData appendBytes:b length:nitems * size];
     if (frame->bytesleft < 1) {
@@ -50,6 +71,7 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     didResume = NO;
     sequenceNumber = 0;
     voiceUDPSocket = -1;
+    voiceClientIDs = [[NSMutableSet alloc] init];
     return self;
 }
 
@@ -120,7 +142,12 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
         close(voiceUDPSocket);
         voiceUDPSocket = -1;
     }
+    [voiceHelper stop];
+    [voiceHelper release];
+    voiceHelper = nil;
+    voiceDAVEEnabled = NO;
     voiceConnectionStarting = NO;
+    [voiceClientIDs removeAllObjects];
     shouldResume = NO;
 }
 -(void)sendWSTextData:(NSData *)textData {
@@ -213,6 +240,11 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
         voiceUDPSocket = -1;
     }
     voiceConnectionStarting = NO;
+    [voiceHelper stop];
+    [voiceHelper release];
+    voiceHelper = nil;
+    voiceDAVEEnabled = NO;
+    [voiceClientIDs removeAllObjects];
 
     // The media connection is negotiated separately after the gateway confirms this state.
     NSMutableDictionary *data = [[NSMutableDictionary alloc] init];
@@ -234,14 +266,16 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
 static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
     if (!receivedVoiceWSData) {
         receivedVoiceWSData = [[NSMutableData alloc] init];
+        const struct curl_ws_frame *firstFrame = curl_ws_meta((CURL *)p);
+        receivedVoiceWSIsBinary = (firstFrame->flags & CURLWS_BINARY) != 0;
     }
     CURL *easy = p;
     const struct curl_ws_frame *frame = curl_ws_meta(easy);
     [receivedVoiceWSData appendBytes:b length:nitems * size];
     if (frame->bytesleft < 1) {
         NSData *voiceData = [NSData dataWithData:receivedVoiceWSData];
-        [[DLWSController sharedInstance] performSelectorOnMainThread:@selector(voiceWSTextDataReceived:)
-                                                           withObject:voiceData waitUntilDone:YES];
+        SEL selector = receivedVoiceWSIsBinary ? @selector(voiceWSBinaryDataReceived:) : @selector(voiceWSTextDataReceived:);
+        [[DLWSController sharedInstance] performSelectorOnMainThread:selector withObject:voiceData waitUntilDone:YES];
         [receivedVoiceWSData release];
         receivedVoiceWSData = nil;
     }
@@ -268,6 +302,12 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
 
 -(void)startVoiceWebSocketThread {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+    // A server voice channel is one DAVE media session, so its snowflake is
+    // the group identifier shared by every member of that session.
+    NSString *helperError = nil;
+    voiceHelper = [[DLVoiceHelper alloc] init];
+    voiceDAVEEnabled = [voiceHelper startForUserID:userID groupID:pendingVoiceChannelID error:&helperError];
+    if (!voiceDAVEEnabled) NSLog(@"DAVE disabled for this voice connection: %@", helperError);
     NSString *voiceURL = [NSString stringWithFormat:@"wss://%@/?v=8", pendingVoiceEndpoint];
     voiceWebSocketHandle = curl_easy_init();
     if (voiceWebSocketHandle) {
@@ -294,6 +334,30 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
     }
 }
 
+-(void)sendVoiceWSBinaryData:(NSData *)data {
+    if (voiceWebSocketHandle && [data length]) {
+        size_t sent;
+        curl_ws_send(voiceWebSocketHandle, [data bytes], [data length], &sent, 0, CURLWS_BINARY);
+    }
+}
+
+-(void)sendDAVEKeyPackage {
+    NSData *package = DLDataFromHexString([voiceHelper initialKeyPackage]);
+    if (!package) {
+        NSLog(@"DAVE helper did not return a valid MLS key package.");
+        return;
+    }
+    NSMutableData *frame = [NSMutableData dataWithBytes:"\x1a" length:1];
+    [frame appendData:package];
+    [self sendVoiceWSBinaryData:frame];
+}
+
+-(void)sendDAVEReadyForTransition:(NSUInteger)transitionID {
+    NSDictionary *data = [NSDictionary dictionaryWithObject:[NSNumber numberWithUnsignedInteger:transitionID] forKey:@"transition_id"];
+    NSDictionary *ready = [NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithInt:23], @kWSOperation, data, @kWSData, nil];
+    [self sendVoiceWSTextData:[[CJSONSerializer serializer] serializeDictionary:ready error:nil]];
+}
+
 -(void)sendVoiceHeartbeat {
     NSDictionary *heartbeatData = [NSDictionary dictionaryWithObjectsAndKeys:
                                    [NSNumber numberWithLongLong:[[NSDate date] timeIntervalSince1970] * 1000], @"t",
@@ -310,9 +374,7 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
     [data setObject:userID forKey:@"user_id"];
     [data setObject:pendingVoiceSessionID forKey:@"session_id"];
     [data setObject:pendingVoiceToken forKey:@"token"];
-    // The DAVE library is built separately for Lion but is not linked into the
-    // app yet, so accurately advertise no DAVE implementation for now.
-    [data setObject:[NSNumber numberWithInt:0] forKey:@"max_dave_protocol_version"];
+    [data setObject:[NSNumber numberWithInt:(voiceDAVEEnabled ? 1 : 0)] forKey:@"max_dave_protocol_version"];
     NSDictionary *identify = [NSDictionary dictionaryWithObjectsAndKeys:
                               [NSNumber numberWithInt:0], @kWSOperation, data, @kWSData, nil];
     NSData *payload = [[CJSONSerializer serializer] serializeDictionary:identify error:nil];
@@ -348,8 +410,49 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
         voiceEncryptionModes = [[data objectForKey:@"modes"] retain];
         [NSThread detachNewThreadSelector:@selector(startVoiceUDPDiscoveryThread) toTarget:self withObject:nil];
     } else if (opcode == 4) {
-        NSLog(@"Voice session description received; UDP discovery and media transport are next.");
+        if (voiceDAVEEnabled && [[data objectForKey:@"dave_protocol_version"] intValue] > 0) [self sendDAVEKeyPackage];
+    } else if (opcode == 11) {
+        NSArray *clients = [data objectForKey:@"user_ids"];
+        if ([clients isKindOfClass:[NSArray class]]) [voiceClientIDs addObjectsFromArray:clients];
+    } else if (opcode == 13) {
+        NSString *clientID = [data objectForKey:@"user_id"];
+        if ([clientID length]) [voiceClientIDs removeObject:clientID];
+    } else if (opcode == 24 && voiceDAVEEnabled && [[data objectForKey:@"epoch"] intValue] == 1) {
+        NSString *helperError = nil;
+        if ([voiceHelper startForUserID:userID groupID:pendingVoiceChannelID error:&helperError]) [self sendDAVEKeyPackage];
+        else NSLog(@"DAVE epoch reset failed: %@", helperError);
     }
+}
+
+-(void)voiceWSBinaryDataReceived:(NSData *)frame {
+    if (!voiceDAVEEnabled || [frame length] < 3) return;
+    const unsigned char *bytes = [frame bytes];
+    unsigned char opcode = bytes[2];
+    NSData *payload = [frame subdataWithRange:NSMakeRange(3, [frame length] - 3)];
+    NSString *error = nil;
+    if (opcode == 25) {
+        [voiceHelper sendCommand:[NSString stringWithFormat:@"EXTERNAL_SENDER %@", DLHexStringFromData(payload)] error:&error];
+    } else if (opcode == 27) {
+        NSString *users = [[voiceClientIDs allObjects] componentsJoinedByString:@","];
+        NSString *reply = [voiceHelper sendCommand:[NSString stringWithFormat:@"PROPOSALS %@ %@", DLHexStringFromData(payload), [users length] ? users : @"-"] error:&error];
+        if ([reply hasPrefix:@"COMMIT_WELCOME "]) {
+            NSData *commitWelcome = DLDataFromHexString([reply substringFromIndex:[@"COMMIT_WELCOME " length]]);
+            if (commitWelcome) {
+                NSMutableData *outgoing = [NSMutableData dataWithBytes:"\x1c" length:1];
+                [outgoing appendData:commitWelcome];
+                [self sendVoiceWSBinaryData:outgoing];
+            }
+        }
+    } else if ((opcode == 29 || opcode == 30) && [payload length] >= 2) {
+        NSUInteger transitionID = ((NSUInteger)((const unsigned char *)[payload bytes])[0] << 8) | ((const unsigned char *)[payload bytes])[1];
+        NSData *message = [payload subdataWithRange:NSMakeRange(2, [payload length] - 2)];
+        NSString *command = opcode == 29 ? @"COMMIT" : @"WELCOME";
+        if (opcode == 30) command = [NSString stringWithFormat:@"WELCOME %@ %@", DLHexStringFromData(message), [[voiceClientIDs allObjects] componentsJoinedByString:@","]];
+        else command = [NSString stringWithFormat:@"COMMIT %@", DLHexStringFromData(message)];
+        NSString *reply = [voiceHelper sendCommand:command error:&error];
+        if ([reply isEqualToString:@"COMMIT_OK"] || [reply isEqualToString:@"WELCOME_OK"]) [self sendDAVEReadyForTransition:transitionID];
+    }
+    if (error) NSLog(@"DAVE binary opcode %d failed: %@", opcode, error);
 }
 
 -(void)startVoiceUDPDiscoveryThread {
@@ -572,6 +675,8 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
             break;
         case OPCodeHeartbeatAck:
             heartbeatResponseReceived = YES;
+            break;
+        default:
             break;
     }
 }

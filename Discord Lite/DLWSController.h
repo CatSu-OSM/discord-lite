@@ -13,6 +13,7 @@
 #import "CJSONSerializer.h"
 #import "DLServer.h"
 #import "DLPreferencesHandler.h"
+#import "DLVoiceHelper.h"
 
 #include <stdint.h>
 
@@ -90,6 +91,9 @@ typedef enum {
     NSInteger voiceServerPort;
     NSArray *voiceEncryptionModes;
     BOOL voiceConnectionStarting;
+    DLVoiceHelper *voiceHelper;
+    NSMutableSet *voiceClientIDs;
+    BOOL voiceDAVEEnabled;
 }
 
 +(DLWSController *)sharedInstance;
