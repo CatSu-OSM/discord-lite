@@ -68,6 +68,7 @@ typedef enum {
     NSString *currentUserStatus;
     NSDictionary *currentUserActivity;
     NSMutableDictionary *loadedServers;
+    NSMutableArray *serverOrder;
     NSMutableDictionary *loadedChannels;
     NSMutableArray *loadedMessages;
     NSString *authFingerprint;
