@@ -64,6 +64,10 @@ application target. Its bundled dependencies build a universal i386/x86_64
 `DiscordLiteVoiceHelper`; run `sh voice-helper/build-lion-helper.sh` on Lion
 to build and exercise its DAVE and audio-device self-test.
 
+The helper's DAVE build uses the OS X Keychain to retain the device's signing
+identity. It is therefore a 10.7+ helper feature; the 10.6.8 text target does
+not link against it.
+
 ## Building the native voice encryption dependency
 
 Discord's current voice encryption uses `libdave`.  The source in

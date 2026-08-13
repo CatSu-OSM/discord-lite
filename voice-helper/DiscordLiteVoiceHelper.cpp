@@ -54,6 +54,16 @@ static int selfTest() {
     }
     const uint16_t version = daveMaxSupportedProtocolVersion();
     daveSessionInit(session, version, 1, "0");
+    uint8_t *keyPackage = NULL;
+    size_t keyPackageLength = 0;
+    daveSessionGetMarshalledKeyPackage(session, &keyPackage, &keyPackageLength);
+    if (!keyPackage || keyPackageLength == 0) {
+        if (keyPackage) daveFree(keyPackage);
+        daveSessionDestroy(session);
+        fprintf(stderr, "DAVE could not create a persistent signing identity.\n");
+        return 5;
+    }
+    daveFree(keyPackage);
     DAVEEncryptorHandle encryptor = daveEncryptorCreate();
     DAVEDecryptorHandle decryptor = daveDecryptorCreate();
     const bool okay = encryptor && decryptor;
@@ -62,7 +72,7 @@ static int selfTest() {
     daveSessionDestroy(session);
     if (!okay) {
         fprintf(stderr, "Unable to create DAVE media cryptors.\n");
-        return 5;
+        return 6;
     }
     printf("DAVE protocol %u; input device %u; output device %u\n", version, (unsigned)input, (unsigned)output);
     return 0;

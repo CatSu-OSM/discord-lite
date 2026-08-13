@@ -7,6 +7,9 @@ set -eu
 : "${LIBDAVE_SOURCE_DIR:?LIBDAVE_SOURCE_DIR must be set}"
 VOICE_BUILD_DIR=$(cd "$(dirname "$0")" && pwd)
 
+cp "$VOICE_BUILD_DIR/lion-patches/persisted_key_pair_apple.cpp" \
+   "$LIBDAVE_SOURCE_DIR/src/mls/detail/persisted_key_pair_apple.cpp"
+
 cmake -S "$LIBDAVE_SOURCE_DIR" -B "$LIBDAVE_SOURCE_DIR/build-i386-lion" \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_OSX_ARCHITECTURES=i386 \
@@ -22,4 +25,4 @@ cmake -S "$LIBDAVE_SOURCE_DIR" -B "$LIBDAVE_SOURCE_DIR/build-i386-lion" \
     -DVCPKG_HOST_TRIPLET=x64-osx \
     -DBUILD_SHARED_LIBS=OFF \
     -DTESTING=OFF \
-    -DPERSISTENT_KEYS=OFF
+    -DPERSISTENT_KEYS=ON
