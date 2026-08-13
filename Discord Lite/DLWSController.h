@@ -14,6 +14,8 @@
 #import "DLServer.h"
 #import "DLPreferencesHandler.h"
 
+#include <stdint.h>
+
 #include "curl_headers/curl.h"
 
 
@@ -70,6 +72,8 @@ typedef enum {
     int heartbeatInterval;
     int voiceHeartbeatInterval;
     int voiceSequenceNumber;
+    int voiceUDPSocket;
+    uint32_t voiceSSRC;
     id<DLWSControllerDelegate> delegate;
     BOOL heartbeatResponseReceived;
     BOOL shouldResume;
@@ -82,6 +86,9 @@ typedef enum {
     NSString *pendingVoiceSessionID;
     NSString *pendingVoiceEndpoint;
     NSString *pendingVoiceToken;
+    NSString *voiceServerIP;
+    NSInteger voiceServerPort;
+    NSArray *voiceEncryptionModes;
     BOOL voiceConnectionStarting;
 }
 

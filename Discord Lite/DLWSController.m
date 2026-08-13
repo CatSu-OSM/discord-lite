@@ -8,6 +8,12 @@
 
 #import "DLWSController.h"
 
+#include <arpa/inet.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/time.h>
+#include <unistd.h>
+
 @implementation DLWSController
 
 static NSMutableData* receivedWSData;
@@ -43,6 +49,7 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     didReconnect = NO;
     didResume = NO;
     sequenceNumber = 0;
+    voiceUDPSocket = -1;
     return self;
 }
 
@@ -108,6 +115,10 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     }
     if (voiceWebSocketHandle) {
         curl_easy_setopt(voiceWebSocketHandle, CURLOPT_TIMEOUT_MS, 1);
+    }
+    if (voiceUDPSocket >= 0) {
+        close(voiceUDPSocket);
+        voiceUDPSocket = -1;
     }
     voiceConnectionStarting = NO;
     shouldResume = NO;
@@ -196,6 +207,10 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     }
     if (voiceWebSocketHandle) {
         curl_easy_setopt(voiceWebSocketHandle, CURLOPT_TIMEOUT_MS, 1);
+    }
+    if (voiceUDPSocket >= 0) {
+        close(voiceUDPSocket);
+        voiceUDPSocket = -1;
     }
     voiceConnectionStarting = NO;
 
@@ -325,10 +340,89 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
                                                               userInfo:nil repeats:YES];
         [self sendVoiceIdentify];
     } else if (opcode == 2) {
-        NSLog(@"Voice server ready at %@:%@", [data objectForKey:@"ip"], [data objectForKey:@"port"]);
+        [voiceServerIP release];
+        voiceServerIP = [[data objectForKey:@"ip"] retain];
+        voiceServerPort = [[data objectForKey:@"port"] integerValue];
+        voiceSSRC = [[data objectForKey:@"ssrc"] unsignedIntValue];
+        [voiceEncryptionModes release];
+        voiceEncryptionModes = [[data objectForKey:@"modes"] retain];
+        [NSThread detachNewThreadSelector:@selector(startVoiceUDPDiscoveryThread) toTarget:self withObject:nil];
     } else if (opcode == 4) {
         NSLog(@"Voice session description received; UDP discovery and media transport are next.");
     }
+}
+
+-(void)startVoiceUDPDiscoveryThread {
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+    struct sockaddr_in serverAddress;
+    memset(&serverAddress, 0, sizeof(serverAddress));
+    serverAddress.sin_family = AF_INET;
+    serverAddress.sin_port = htons((uint16_t)voiceServerPort);
+    if (!voiceServerIP || inet_aton([voiceServerIP UTF8String], &serverAddress.sin_addr) == 0) {
+        NSLog(@"Voice UDP discovery received an invalid server address.");
+        [pool release];
+        return;
+    }
+
+    int socketFD = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (socketFD < 0) {
+        NSLog(@"Unable to create the voice UDP socket.");
+        [pool release];
+        return;
+    }
+    voiceUDPSocket = socketFD;
+    struct timeval timeout;
+    timeout.tv_sec = 3;
+    timeout.tv_usec = 0;
+    setsockopt(socketFD, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+
+    unsigned char request[70];
+    memset(request, 0, sizeof(request));
+    request[0] = 0x00;
+    request[1] = 0x01;
+    request[2] = 0x00;
+    request[3] = 0x46;
+    uint32_t ssrc = htonl(voiceSSRC);
+    memcpy(request + 4, &ssrc, sizeof(ssrc));
+    if (sendto(socketFD, request, sizeof(request), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0) {
+        NSLog(@"Voice UDP discovery request failed.");
+        close(socketFD);
+        if (voiceUDPSocket == socketFD) voiceUDPSocket = -1;
+        [pool release];
+        return;
+    }
+
+    unsigned char response[70];
+    ssize_t responseLength = recvfrom(socketFD, response, sizeof(response), 0, NULL, NULL);
+    if (responseLength < 70) {
+        NSLog(@"Voice UDP discovery did not receive a valid response.");
+        close(socketFD);
+        if (voiceUDPSocket == socketFD) voiceUDPSocket = -1;
+        [pool release];
+        return;
+    }
+    size_t addressLength = 0;
+    while (addressLength < 64 && response[4 + addressLength] != '\0') addressLength++;
+    NSString *address = [[[NSString alloc] initWithBytes:response + 4 length:addressLength encoding:NSASCIIStringEncoding] autorelease];
+    NSInteger port = ((NSInteger)response[68] << 8) | response[69];
+    NSDictionary *result = [NSDictionary dictionaryWithObjectsAndKeys:address, @"address", [NSNumber numberWithInteger:port], @"port", nil];
+    [self performSelectorOnMainThread:@selector(voiceUDPDiscoveryCompleted:) withObject:result waitUntilDone:NO];
+    [pool release];
+}
+
+-(void)voiceUDPDiscoveryCompleted:(NSDictionary *)result {
+    NSString *mode = @"aead_xchacha20_poly1305_rtpsize";
+    if (![voiceEncryptionModes containsObject:mode]) {
+        NSLog(@"Voice server did not offer the required modern XChaCha20 mode.");
+        return;
+    }
+    NSDictionary *udp = [NSDictionary dictionaryWithObjectsAndKeys:[result objectForKey:@"address"], @"address",
+                         [result objectForKey:@"port"], @"port", mode, @"mode", nil];
+    NSDictionary *data = [NSDictionary dictionaryWithObjectsAndKeys:@"udp", @"protocol", udp, @"data", nil];
+    NSDictionary *selectProtocol = [NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithInt:1], @kWSOperation,
+                                    data, @kWSData, nil];
+    NSData *payload = [[CJSONSerializer serializer] serializeDictionary:selectProtocol error:nil];
+    [self sendVoiceWSTextData:payload];
 }
 
 -(void)queryServer:(DLServer *)s forMembersContainingUsername:(NSString *)username {
