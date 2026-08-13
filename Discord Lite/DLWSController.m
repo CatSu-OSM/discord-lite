@@ -26,6 +26,11 @@ static BOOL DLVoiceStringIsUsable(id value) {
     return value && value != [NSNull null] && [value isKindOfClass:[NSString class]] && [value length] > 0;
 }
 
+static void DLVoiceSetError(NSString **target, NSString *message) {
+    [*target release];
+    *target = [message copy];
+}
+
 static NSString *DLHexStringFromData(NSData *data) {
     const unsigned char *bytes = [data bytes];
     NSMutableString *result = [NSMutableString stringWithCapacity:[data length] * 2];
@@ -169,6 +174,10 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     voiceIsSpeaking = NO;
     voiceDAVEEnabled = NO;
     voiceConnectionStarting = NO;
+    voiceSelfMuted = NO;
+    voiceSelfDeafened = NO;
+    voicePacketsReceived = 0;
+    voicePacketsPlayed = 0;
     [voiceClientIDs removeAllObjects];
     shouldResume = NO;
 }
@@ -262,6 +271,11 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
         voiceUDPSocket = -1;
     }
     voiceConnectionStarting = NO;
+    voiceSelfMuted = NO;
+    voiceSelfDeafened = NO;
+    voicePacketsReceived = 0;
+    voicePacketsPlayed = 0;
+    DLVoiceSetError(&voiceLastError, nil);
     [voiceHelper stop];
     [voiceHelper release];
     voiceHelper = nil;
@@ -293,6 +307,38 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
 
     [request release];
     [data release];
+}
+
+-(void)sendVoiceStateForChannelID:(id)channelID {
+    if (!pendingVoiceGuildID) return;
+    NSDictionary *data = [NSDictionary dictionaryWithObjectsAndKeys:pendingVoiceGuildID, @"guild_id", channelID, @"channel_id",
+                          [NSNumber numberWithBool:voiceSelfMuted], @"self_mute", [NSNumber numberWithBool:voiceSelfDeafened], @"self_deaf", nil];
+    NSDictionary *request = [NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithInt:OPCodeVoiceStateUpdate], @kWSOperation, data, @kWSData, nil];
+    [self sendWSTextData:[[CJSONSerializer serializer] serializeDictionary:request error:nil]];
+}
+
+-(void)setVoiceSelfMuted:(BOOL)muted {
+    voiceSelfMuted = muted;
+    [self sendVoiceStateForChannelID:pendingVoiceChannelID];
+}
+
+-(void)setVoiceSelfDeafened:(BOOL)deafened {
+    voiceSelfDeafened = deafened;
+    [self sendVoiceStateForChannelID:pendingVoiceChannelID];
+}
+
+-(BOOL)isVoiceSelfMuted { return voiceSelfMuted; }
+-(BOOL)isVoiceSelfDeafened { return voiceSelfDeafened; }
+
+-(void)leaveVoiceChannel {
+    [self sendVoiceStateForChannelID:[NSNull null]];
+    [self stop];
+}
+
+-(NSString *)voiceStatusText {
+    if (voiceLastError) return voiceLastError;
+    if (!voiceConnectionStarting) return @"Not connected";
+    return [NSString stringWithFormat:@"Connected · received %lu · playing %lu", (unsigned long)voicePacketsReceived, (unsigned long)voicePacketsPlayed];
 }
 
 static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
@@ -400,7 +446,7 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
 }
 
 -(void)voiceCaptureDidReceivePCM:(NSData *)pcm {
-    if (!voiceCapture || !voiceMedia || !voiceDAVEEnabled || voiceUDPSocket < 0 || [pcm length] != 3840) return;
+    if (!voiceCapture || voiceSelfMuted || !voiceMedia || !voiceDAVEEnabled || voiceUDPSocket < 0 || [pcm length] != 3840) return;
     NSError *opusError = nil;
     NSData *opus = [voiceMedia encodePCM:pcm frameCount:960 error:&opusError];
     if (!opus) {
@@ -458,22 +504,35 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
 }
 
 -(void)voiceUDPPacketReceived:(NSData *)packet {
-    if (!voiceMedia || [packet length] < 12) return;
+    if (voiceSelfDeafened || !voiceMedia || [packet length] < 12) return;
+    voicePacketsReceived++;
     const unsigned char *bytes = [packet bytes];
     uint32_t networkSSRC = 0;
     memcpy(&networkSSRC, bytes + 8, sizeof(networkSSRC));
     NSString *remoteUserID = [voiceUsersBySSRC objectForKey:[NSString stringWithFormat:@"%u", ntohl(networkSSRC)]];
-    if (![remoteUserID length]) return;
+    if (![remoteUserID length]) {
+        DLVoiceSetError(&voiceLastError, @"Waiting for Discord speaking metadata…");
+        return;
+    }
     NSError *transportError = nil;
     NSData *daveFrame = [voiceMedia decryptVoicePacket:packet error:&transportError];
-    if (!daveFrame) return;
+    if (!daveFrame) {
+        DLVoiceSetError(&voiceLastError, @"Incoming RTP transport authentication failed.");
+        return;
+    }
     NSString *helperError = nil;
     NSString *reply = [voiceHelper sendCommand:[NSString stringWithFormat:@"DECRYPT %@ %@", remoteUserID, DLHexStringFromData(daveFrame)] error:&helperError];
-    if (![reply hasPrefix:@"DECRYPTED "]) return;
+    if (![reply hasPrefix:@"DECRYPTED "]) {
+        DLVoiceSetError(&voiceLastError, helperError ? helperError : @"Waiting for the DAVE media key.");
+        return;
+    }
     NSData *opus = DLDataFromHexString([reply substringFromIndex:[@"DECRYPTED " length]]);
     NSError *opusError = nil;
     NSData *pcm = [voiceMedia decodeOpus:opus frameCount:960 error:&opusError];
-    if (!pcm) return;
+    if (!pcm) {
+        DLVoiceSetError(&voiceLastError, @"Incoming Opus decoding failed.");
+        return;
+    }
     if (!voicePlayback) {
         voicePlayback = [[DLVoicePlayback alloc] init];
         NSError *playbackError = nil;
@@ -485,6 +544,8 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
         }
     }
     [voicePlayback enqueuePCM:pcm];
+    voicePacketsPlayed++;
+    DLVoiceSetError(&voiceLastError, nil);
 }
 
 -(void)sendVoiceHeartbeat {

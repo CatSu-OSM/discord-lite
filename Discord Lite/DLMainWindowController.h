@@ -72,6 +72,13 @@ typedef enum {
     IBOutlet NSTextField *chatHeaderLabel;
     IBOutlet HorizontalDynamicScrollView *pendingAttachmentsScrollView;
     IBOutlet NSTextField *typingStatusTextField;
+    NSView_BGColor *voicePanelView;
+    NSTextField *voiceTitleTextField;
+    NSTextField *voiceStatusTextField;
+    NSButton *voiceMuteButton;
+    NSButton *voiceDeafenButton;
+    NSButton *voiceLeaveButton;
+    NSTimer *voiceStatusTimer;
     
     IBOutlet NSView *replyToView;
     IBOutlet NSTextField *replyToTextField;

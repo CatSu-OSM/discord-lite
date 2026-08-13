@@ -104,6 +104,11 @@ typedef enum {
     BOOL voiceIsSpeaking;
     DLVoicePlayback *voicePlayback;
     NSMutableDictionary *voiceUsersBySSRC;
+    BOOL voiceSelfMuted;
+    BOOL voiceSelfDeafened;
+    NSUInteger voicePacketsReceived;
+    NSUInteger voicePacketsPlayed;
+    NSString *voiceLastError;
 }
 
 +(DLWSController *)sharedInstance;
@@ -115,6 +120,12 @@ typedef enum {
 -(void)updateWSForDirectMessageChannel:(DLChannel *)c;
 -(void)updateWSForChannel:(DLChannel *)c inServer:(DLServer *)s;
 -(void)joinVoiceChannel:(DLChannel *)c inServer:(DLServer *)s;
+-(void)leaveVoiceChannel;
+-(void)setVoiceSelfMuted:(BOOL)muted;
+-(void)setVoiceSelfDeafened:(BOOL)deafened;
+-(BOOL)isVoiceSelfMuted;
+-(BOOL)isVoiceSelfDeafened;
+-(NSString *)voiceStatusText;
 
 -(void)queryServer:(DLServer *)s forMembersContainingUsername:(NSString *)username;
 

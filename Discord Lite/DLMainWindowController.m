@@ -65,6 +65,15 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
     [chatViewHeader setFrame:NSMakeRect(338.0f, contentHeight - 42.0f, chatWidth, 42.0f)];
     [messageEntryContainerView setFrame:NSMakeRect(338.0f, 0.0f, chatWidth, entryHeight)];
     [chatScrollView setFrame:NSMakeRect(338.0f, entryHeight, chatWidth, contentHeight - 42.0f - entryHeight)];
+    [voicePanelView setFrame:[chatScrollView frame]];
+    CGFloat voiceHeight = NSHeight([voicePanelView frame]);
+    [voiceTitleTextField setFrame:NSMakeRect(28.0f, voiceHeight - 76.0f, chatWidth - 56.0f, 26.0f)];
+    [voiceStatusTextField setFrame:NSMakeRect(28.0f, voiceHeight - 102.0f, chatWidth - 56.0f, 20.0f)];
+    CGFloat controlsWidth = 340.0f;
+    CGFloat controlsX = MAX(28.0f, (chatWidth - controlsWidth) / 2.0f);
+    [voiceMuteButton setFrame:NSMakeRect(controlsX, 42.0f, 108.0f, 34.0f)];
+    [voiceDeafenButton setFrame:NSMakeRect(controlsX + 116.0f, 42.0f, 108.0f, 34.0f)];
+    [voiceLeaveButton setFrame:NSMakeRect(controlsX + 232.0f, 42.0f, 108.0f, 34.0f)];
 
     NSRect entryFrame = [messageEntryScrollView frame];
     entryFrame.size.width = chatWidth - 58.0f;
@@ -143,6 +152,36 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
         chatScrollView = [[ChatScrollView alloc] initWithFrame:NSMakeRect(338, 56, 409, 419)];
         DLConfigureScrollView(chatScrollView, [[[NSView alloc] initWithFrame:NSMakeRect(0, 0, 409, 100)] autorelease], chatColor, &chatViewScroller);
         [contentView addSubview:chatScrollView];
+
+        voicePanelView = [[NSView_BGColor alloc] initWithFrame:[chatScrollView frame]];
+        [voicePanelView setBackgroundColor:[NSColor colorWithCalibratedRed:37.0/255.0 green:38.0/255.0 blue:42.0/255.0 alpha:1.0]];
+        voiceTitleTextField = DLLabel(NSMakeRect(28, 0, 340, 26), @"Voice channel", [NSFont boldSystemFontOfSize:22], [NSColor whiteColor]);
+        [voicePanelView addSubview:voiceTitleTextField];
+        voiceStatusTextField = DLLabel(NSMakeRect(28, 0, 350, 20), @"Connecting…", [NSFont systemFontOfSize:13], [NSColor lightGrayColor]);
+        [voicePanelView addSubview:voiceStatusTextField];
+        voiceMuteButton = [[NSButton alloc] initWithFrame:NSMakeRect(28, 0, 108, 34)];
+        [voiceMuteButton setTitle:@"Mute mic"];
+        [voiceMuteButton setBezelStyle:NSRoundedBezelStyle];
+        [voiceMuteButton setTarget:self];
+        [voiceMuteButton setAction:@selector(toggleVoiceMute:)];
+        [voicePanelView addSubview:voiceMuteButton];
+        voiceDeafenButton = [[NSButton alloc] initWithFrame:NSMakeRect(144, 0, 108, 34)];
+        [voiceDeafenButton setTitle:@"Deafen"];
+        [voiceDeafenButton setBezelStyle:NSRoundedBezelStyle];
+        [voiceDeafenButton setTarget:self];
+        [voiceDeafenButton setAction:@selector(toggleVoiceDeafen:)];
+        [voicePanelView addSubview:voiceDeafenButton];
+        voiceLeaveButton = [[NSButton alloc] initWithFrame:NSMakeRect(260, 0, 108, 34)];
+        [voiceLeaveButton setTitle:@"Leave voice"];
+        [voiceLeaveButton setBezelStyle:NSRoundedBezelStyle];
+        [voiceLeaveButton setTarget:self];
+        [voiceLeaveButton setAction:@selector(leaveVoice:)];
+        [voicePanelView addSubview:voiceLeaveButton];
+        [voiceMuteButton release];
+        [voiceDeafenButton release];
+        [voiceLeaveButton release];
+        [voicePanelView setHidden:YES];
+        [contentView addSubview:voicePanelView];
 
         userInfoView = [[NSView_BGColor alloc] initWithFrame:NSMakeRect(80, 0, 258, 56)];
         myUserAvatarImage = [[NSImageView alloc] initWithFrame:NSMakeRect(11, 11, 35, 34)];
@@ -335,6 +374,45 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
     [messageEditor clear];
     [messageEntryTextView setString:@""];
     [self textDidChange:nil];
+    [voicePanelView setHidden:YES];
+    [chatScrollView setHidden:NO];
+    [messageEntryContainerView setHidden:NO];
+    [voiceStatusTimer invalidate];
+    voiceStatusTimer = nil;
+}
+
+-(void)showVoicePanelForChannel:(DLChannel *)channel {
+    [voiceTitleTextField setStringValue:[NSString stringWithFormat:@"🔊 %@", [channel name]]];
+    [voicePanelView setHidden:NO];
+    [chatScrollView setHidden:YES];
+    [messageEntryContainerView setHidden:YES];
+    [voiceStatusTimer invalidate];
+    voiceStatusTimer = [NSTimer scheduledTimerWithTimeInterval:1.0 target:self selector:@selector(updateVoiceStatus:) userInfo:nil repeats:YES];
+    [self updateVoiceStatus:nil];
+}
+
+-(void)updateVoiceStatus:(NSTimer *)timer {
+    DLWSController *voice = [DLWSController sharedInstance];
+    [voiceStatusTextField setStringValue:[voice voiceStatusText]];
+    [voiceMuteButton setTitle:[voice isVoiceSelfMuted] ? @"Unmute mic" : @"Mute mic"];
+    [voiceDeafenButton setTitle:[voice isVoiceSelfDeafened] ? @"Undeafen" : @"Deafen"];
+}
+
+-(IBAction)toggleVoiceMute:(id)sender {
+    DLWSController *voice = [DLWSController sharedInstance];
+    [voice setVoiceSelfMuted:![voice isVoiceSelfMuted]];
+    [self updateVoiceStatus:nil];
+}
+
+-(IBAction)toggleVoiceDeafen:(id)sender {
+    DLWSController *voice = [DLWSController sharedInstance];
+    [voice setVoiceSelfDeafened:![voice isVoiceSelfDeafened]];
+    [self updateVoiceStatus:nil];
+}
+
+-(IBAction)leaveVoice:(id)sender {
+    [[DLWSController sharedInstance] leaveVoiceChannel];
+    [self resetUI];
 }
 
 -(void)loadMainContent {
@@ -833,6 +911,7 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
         [chatHeaderLabel setStringValue:[NSString stringWithFormat:@"%@ (Voice)", [channel name]]];
         [chatHeaderImage setImage:[[[NSImage alloc] initWithData:[channel subImageData]] autorelease]];
         [chatScrollView setContent:[NSArray array]];
+        [self showVoicePanelForChannel:channel];
         [[DLWSController sharedInstance] joinVoiceChannel:channel inServer:[[DLController sharedInstance] selectedServer]];
         return;
     }
