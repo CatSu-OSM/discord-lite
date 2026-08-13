@@ -89,7 +89,13 @@ static void DLVoicePlaybackCallback(void *userData, AudioQueueRef audioQueue, Au
 -(void)stop {
     running = NO;
     if (queue) {
-        AudioQueueDispose((AudioQueueRef)queue, true);
+        // The queue was created on the main run loop.  On Lion, disposing it
+        // immediately can leave one output callback queued with `self` as its
+        // userData after this object has been released.  Stop synchronously
+        // first, then dispose after the callback has drained.
+        AudioQueueRef audioQueue = (AudioQueueRef)queue;
+        AudioQueueStop(audioQueue, true);
+        AudioQueueDispose(audioQueue, false);
         queue = NULL;
     }
     memset(buffers, 0, sizeof(buffers));
