@@ -13,10 +13,13 @@ static void DLVoicePlaybackCallback(void *userData, AudioQueueRef audioQueue, Au
     memset(buffer->mAudioData, 0, buffer->mAudioDataBytesCapacity);
     [playback->lock lock];
     if ([playback->pendingPCM count]) {
-        NSData *pcm = [playback->pendingPCM objectAtIndex:0];
+        // Removing the queue's only reference can deallocate this NSData
+        // before its bytes are copied on 10.7.  Hold it through the copy.
+        NSData *pcm = [[playback->pendingPCM objectAtIndex:0] retain];
         [playback->pendingPCM removeObjectAtIndex:0];
         NSUInteger length = MIN([pcm length], (NSUInteger)buffer->mAudioDataBytesCapacity);
         memcpy(buffer->mAudioData, [pcm bytes], length);
+        [pcm release];
     }
     [playback->lock unlock];
     buffer->mAudioDataByteSize = buffer->mAudioDataBytesCapacity;
