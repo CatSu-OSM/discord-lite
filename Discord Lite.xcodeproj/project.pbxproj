@@ -23,6 +23,7 @@
 		873E712F2D0E7F3200427A00 /* NSTextField+DynamicHeight.m in Sources */ = {isa = PBXBuildFile; fileRef = 873E712E2D0E7F3200427A00 /* NSTextField+DynamicHeight.m */; };
 		873E71322D0E899E00427A00 /* PopoutView.m in Sources */ = {isa = PBXBuildFile; fileRef = 873E71312D0E899E00427A00 /* PopoutView.m */; };
 		8742C8682730EE47005359DC /* ChatItemViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 8742C8672730EE47005359DC /* ChatItemViewController.m */; };
+		D1A000012F00000100000061 /* DLUserCardWindowController.m in Sources */ = {isa = PBXBuildFile; fileRef = D1A000012F00000100000063 /* DLUserCardWindowController.m */; };
 		87450D2C27370833007B4C08 /* DLUserSettings.m in Sources */ = {isa = PBXBuildFile; fileRef = 87450D2B27370833007B4C08 /* DLUserSettings.m */; };
 		8759138A274D9EBD003B7128 /* RegexKitLite.m in Sources */ = {isa = PBXBuildFile; fileRef = 87591388274D9EBD003B7128 /* RegexKitLite.m */; };
 		8759138F274DB5BD003B7128 /* TagSelectionViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 8759138E274DB5BD003B7128 /* TagSelectionViewController.m */; };
@@ -173,6 +174,8 @@
 		873E71312D0E899E00427A00 /* PopoutView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PopoutView.m; sourceTree = "<group>"; };
 		8742C8662730EE47005359DC /* ChatItemViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ChatItemViewController.h; sourceTree = "<group>"; };
 		8742C8672730EE47005359DC /* ChatItemViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ChatItemViewController.m; sourceTree = "<group>"; };
+		D1A000012F00000100000062 /* DLUserCardWindowController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DLUserCardWindowController.h; sourceTree = "<group>"; };
+		D1A000012F00000100000063 /* DLUserCardWindowController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = DLUserCardWindowController.m; sourceTree = "<group>"; };
 		8742C86C2730EE85005359DC /* en */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = en; path = en.lproj/ChatItemViewController.xib; sourceTree = "<group>"; };
 		87450D2A27370833007B4C08 /* DLUserSettings.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DLUserSettings.h; sourceTree = "<group>"; };
 		87450D2B27370833007B4C08 /* DLUserSettings.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = DLUserSettings.m; sourceTree = "<group>"; };
@@ -417,6 +420,8 @@
 				87A7E7992A4935FB00CA0671 /* DirectMessageItemViewController.xib */,
 				8742C8662730EE47005359DC /* ChatItemViewController.h */,
 				8742C8672730EE47005359DC /* ChatItemViewController.m */,
+				D1A000012F00000100000062 /* DLUserCardWindowController.h */,
+				D1A000012F00000100000063 /* DLUserCardWindowController.m */,
 				8742C86D2730EE85005359DC /* ChatItemViewController.xib */,
 				87A38DD7273330C0002385EE /* AttachmentPreviewViewController.h */,
 				87A38DD8273330C0002385EE /* AttachmentPreviewViewController.m */,
@@ -907,6 +912,7 @@
 				87A6E2C4273612B5000DC06E /* BezierPathRoundedRect.m in Sources */,
 				87062776278E9CF20056BD71 /* DLCaptchaWindowController.m in Sources */,
 				8742C8682730EE47005359DC /* ChatItemViewController.m in Sources */,
+				D1A000012F00000100000061 /* DLUserCardWindowController.m in Sources */,
 				87D9D16B2731CCA700162F22 /* ChatScrollView.m in Sources */,
 				876DBDF227291681008682BC /* CJSONDeserializer.m in Sources */,
 				87A6E2BE2735E0C2000DC06E /* RoundedTextFieldCell.m in Sources */,
