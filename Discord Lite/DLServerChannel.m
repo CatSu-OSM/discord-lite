@@ -18,10 +18,14 @@
 
 -(void)updateWithDict:(NSDictionary *)d {
     [super updateWithDict:d];
+    [parentID release];
     parentID = [[d objectForKey:@"parent_id"] retain];
+    [serverID release];
     serverID = [[d objectForKey:@"guild_id"] retain];
+    [topic release];
     topic = [[d objectForKey:@"topic"] retain];
     position = [[d objectForKey:@"position"] intValue];
+    if ([self isThread]) threadPosition = ([d objectForKey:@"thread_metadata"] && ![[d objectForKey:@"thread_metadata"] isKindOfClass:[NSNull class]]) ? [[d objectForKey:@"message_count"] intValue] : position;
 }
 
 -(NSString *)name {
@@ -39,6 +43,7 @@
 -(NSInteger) position {
     return position;
 }
+-(NSInteger)threadPosition { return threadPosition; }
 
 - (NSComparisonResult)compare:(DLServerChannel *)o {
     if (position > o.position) {
@@ -66,7 +71,9 @@
 }
 
 -(void)dealloc {
+    [parentID release];
     [children release];
+    [topic release];
     [serverID release];
     [super dealloc];
 }

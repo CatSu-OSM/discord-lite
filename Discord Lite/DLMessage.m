@@ -13,6 +13,7 @@
 -(id)init {
     self = [super init];
     mentionedEveryone = NO;
+    messageType = 0;
     return self;
 }
 -(id)initWithDict:(NSDictionary *)d {
@@ -24,7 +25,12 @@
     messageID = [[d objectForKey:@"id"] retain];
     content = [[d objectForKey:@"content"] retain];
     channelID = [[d objectForKey:@"channel_id"] retain];
+    if ([d objectForKey:@"type"] && ![[d objectForKey:@"type"] isKindOfClass:[NSNull class]]) messageType = [[d objectForKey:@"type"] integerValue];
     author = [[DLUser alloc] initWithDict:[d objectForKey:@"author"]];
+    if ([d objectForKey:@"member"] && ![[d objectForKey:@"member"] isKindOfClass:[NSNull class]]) {
+        member = [[DLServerMember alloc] initWithDict:[d objectForKey:@"member"]];
+        if (![member user]) [member setUser:author];
+    }
     NSMutableArray *attachmentData = [[NSMutableArray alloc] init];
     NSEnumerator *e = [[d objectForKey:@"attachments"] objectEnumerator];
     NSDictionary *attachmentDict;
@@ -84,9 +90,11 @@
 -(NSString *)serverID {
     return serverID;
 }
+-(NSInteger)messageType { return messageType; }
 -(DLUser *)author {
     return author;
 }
+-(DLServerMember *)member { return member; }
 -(NSArray *)attachments {
     return attachments;
 }
@@ -105,6 +113,7 @@
 -(BOOL)mentionedEveryone {
     return mentionedEveryone;
 }
+-(BOOL)isChannelNameChangeMessage { return messageType == 4; }
 
 -(void)setDelegate:(id<DLMessageDelegate>)inDelegate {
     delegate = inDelegate;
@@ -156,6 +165,7 @@
 
 -(void)dealloc {
     [author release];
+    [member release];
     [mentionedUsers release];
     [content release];
     [attachments release];

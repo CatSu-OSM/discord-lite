@@ -13,6 +13,7 @@
     NSString *serverID;
     NSString *topic;
     NSInteger position;
+    NSInteger threadPosition;
     NSArray *children;
 }
 
@@ -24,6 +25,7 @@
 -(NSString *)serverID;
 -(NSString *)topic;
 -(NSInteger) position;
+-(NSInteger)threadPosition;
 -(NSArray *)children;
 
 - (NSComparisonResult)compare:(DLServerChannel *)o;

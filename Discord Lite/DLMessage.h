@@ -8,6 +8,7 @@
 
 #import <Foundation/Foundation.h>
 #import "DLUser.h"
+#import "DLServerMember.h"
 #import "DLAttachment.h"
 #import "RegexKitLite.h"
 
@@ -21,7 +22,9 @@
     NSString *content;
     NSString *channelID;
     NSString *serverID;
+    NSInteger messageType;
     DLUser *author;
+    DLServerMember *member;
     NSArray *attachments;
     NSDate *timestamp;
     NSDate *editedTimestamp;
@@ -41,13 +44,16 @@
 -(NSString *)content;
 -(NSString *)channelID;
 -(NSString *)serverID;
+-(NSInteger)messageType;
 -(DLUser *)author;
+-(DLServerMember *)member;
 -(NSArray *)attachments;
 -(NSDate *)timestamp;
 -(NSDate *)editedTimestamp;
 -(NSArray *)mentionedUsers;
 -(DLMessage *)referencedMessage;
 -(BOOL)mentionedEveryone;
+-(BOOL)isChannelNameChangeMessage;
 
 -(void)setDelegate:(id<DLMessageDelegate>)inDelegate;
 
