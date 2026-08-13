@@ -76,11 +76,11 @@ NSString * const DLEmojiImageDidUpdateNotification = @"DLEmojiImageDidUpdateNoti
 -(void)requestDidFinishLoading:(AsyncHTTPRequest *)finishedRequest {
     [DLTextParser emojiImageRequestDidFinishForURL:urlString data:[finishedRequest responseData]];
     if ([finishedRequest result] == HTTPResultOK && [[finishedRequest responseData] length] > 0) {
-        if ([NSThread isMainThread]) {
-            [[NSNotificationCenter defaultCenter] postNotificationName:DLEmojiImageDidUpdateNotification object:assetName];
-        } else {
-            [[NSNotificationCenter defaultCenter] performSelectorOnMainThread:@selector(postNotification:) withObject:[NSNotification notificationWithName:DLEmojiImageDidUpdateNotification object:assetName] waitUntilDone:NO];
-        }
+        // A bulk member render can complete several cached requests inline.
+        // Posting synchronously lets each redraw start another request and
+        // recursively consume the main-thread stack.  Queue the redraw after
+        // this request has unwound instead.
+        [[NSNotificationCenter defaultCenter] performSelectorOnMainThread:@selector(postNotification:) withObject:[NSNotification notificationWithName:DLEmojiImageDidUpdateNotification object:assetName] waitUntilDone:NO];
     }
     [self autorelease];
 }
@@ -251,6 +251,14 @@ const CGFloat MESSAGE_VIEW_FONT_SIZE = 13.0;
     return pendingRequests;
 }
 
++(NSMutableSet *)completedEmojiImageRequests {
+    static NSMutableSet *completedRequests = nil;
+    if (!completedRequests) {
+        completedRequests = [[NSMutableSet alloc] init];
+    }
+    return completedRequests;
+}
+
 +(NSMutableDictionary *)emojiImageDataCache {
     static NSMutableDictionary *cache = nil;
     if (!cache) {
@@ -287,7 +295,7 @@ const CGFloat MESSAGE_VIEW_FONT_SIZE = 13.0;
 
 +(void)scheduleEmojiImageRequestForURL:(NSString *)url assetName:(NSString *)assetName {
     NSMutableSet *pendingRequests = [self pendingEmojiImageRequests];
-    if ([pendingRequests containsObject:url]) {
+    if ([pendingRequests containsObject:url] || [[self completedEmojiImageRequests] containsObject:url]) {
         return;
     }
     [pendingRequests addObject:url];
@@ -298,6 +306,7 @@ const CGFloat MESSAGE_VIEW_FONT_SIZE = 13.0;
 +(void)emojiImageRequestDidFinishForURL:(NSString *)url data:(NSData *)data {
     if (url) {
         [[self pendingEmojiImageRequests] removeObject:url];
+        [[self completedEmojiImageRequests] addObject:url];
         // AsyncHTTPGetRequest can call its delegate before its cache write is
         // observable.  Make the image available before notifying text views;
         // otherwise their synchronous redraw starts the same request again.
