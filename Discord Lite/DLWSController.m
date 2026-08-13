@@ -1020,7 +1020,7 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
             for (NSData *packet in pendingPackets) [self voiceUDPPacketReceived:packet];
             [pendingPackets release];
         }
-    } else if (opcode == 22 && voiceDAVEEnabled && [[data objectForKey:@"protocol_version"] intValue] > 0) {
+    } else if (opcode == 22 && voiceDAVEEnabled) {
         NSString *helperError = nil;
         NSString *reply = [voiceHelper sendCommand:[NSString stringWithFormat:@"ACTIVATE %u", voiceSSRC] error:&helperError];
         if (![reply isEqualToString:@"MEDIA_READY"]) NSLog(@"DAVE media activation failed: %@ %@", reply, helperError);
@@ -1033,9 +1033,14 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
             if (![voiceCapture start:&captureError]) NSLog(@"Voice microphone start failed: %@", captureError);
         }
     } else if (opcode == 24 && voiceDAVEEnabled && [[data objectForKey:@"epoch"] intValue] == 1) {
-        NSString *helperError = nil;
-        if ([voiceHelper startForUserID:userID groupID:pendingVoiceChannelID error:&helperError]) [self sendDAVEKeyPackage];
-        else NSLog(@"DAVE epoch reset failed: %@", helperError);
+        // INIT has already prepared this pending group and supplied its key
+        // package.  Do not restart it here: doing so can discard an External
+        // Sender package received just before Prepare Epoch.  A prepared
+        // participant must acknowledge the transition before the gateway can
+        // execute it and enable DAVE media.
+        NSNumber *transitionID = [data objectForKey:@"transition_id"];
+        if (transitionID) [self sendDAVEReadyForTransition:[transitionID unsignedIntegerValue]];
+        else NSLog(@"DAVE Prepare Epoch did not include a transition ID.");
     }
 }
 
