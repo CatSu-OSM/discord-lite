@@ -34,7 +34,12 @@
             [responseData release];
             responseData = (NSMutableData *)[[[HTTPCache sharedInstance] cachedDataForURL:url] retain];
             result = HTTPResultOK;
-            [delegate requestDidFinishLoading:self];
+            id <AsyncHTTPRequestDelegate> finishedDelegate = [delegate retain];
+            [self setDelegate:nil];
+            if (finishedDelegate) {
+                [finishedDelegate requestDidFinishLoading:self];
+            }
+            [finishedDelegate release];
         } else {
             [super start];
         }
