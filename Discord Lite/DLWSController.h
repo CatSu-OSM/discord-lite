@@ -111,6 +111,9 @@ typedef enum {
     NSString *voiceLastError;
     NSString *voiceConnectionStatus;
     NSUInteger voiceGeneration;
+    // libcurl easy handles are owned by their WebSocket thread.  Main-thread
+    // voice events enqueue frames here for that thread to write.
+    NSMutableArray *voiceOutgoingFrames;
 }
 
 +(DLWSController *)sharedInstance;
