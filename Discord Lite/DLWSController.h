@@ -104,6 +104,7 @@ typedef enum {
     BOOL voiceIsSpeaking;
     DLVoicePlayback *voicePlayback;
     NSMutableDictionary *voiceUsersBySSRC;
+    NSMutableDictionary *voicePendingPacketsBySSRC;
     BOOL voiceSelfMuted;
     BOOL voiceSelfDeafened;
     NSUInteger voicePacketsReceived;

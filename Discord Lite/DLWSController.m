@@ -132,6 +132,7 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     voiceUDPSocket = -1;
     voiceClientIDs = [[NSMutableSet alloc] init];
     voiceUsersBySSRC = [[NSMutableDictionary alloc] init];
+    voicePendingPacketsBySSRC = [[NSMutableDictionary alloc] init];
     return self;
 }
 
@@ -215,6 +216,7 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     [voicePlayback release];
     voicePlayback = nil;
     [voiceUsersBySSRC removeAllObjects];
+    [voicePendingPacketsBySSRC removeAllObjects];
     voiceIsSpeaking = NO;
     voiceDAVEEnabled = NO;
     voiceConnectionStarting = NO;
@@ -337,6 +339,7 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     [voicePlayback release];
     voicePlayback = nil;
     [voiceUsersBySSRC removeAllObjects];
+    [voicePendingPacketsBySSRC removeAllObjects];
     voiceIsSpeaking = NO;
     voiceDAVEEnabled = NO;
     [voiceClientIDs removeAllObjects];
@@ -574,8 +577,18 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
     const unsigned char *bytes = [packet bytes];
     uint32_t networkSSRC = 0;
     memcpy(&networkSSRC, bytes + 8, sizeof(networkSSRC));
-    NSString *remoteUserID = [voiceUsersBySSRC objectForKey:[NSString stringWithFormat:@"%u", ntohl(networkSSRC)]];
+    NSString *ssrcKey = [NSString stringWithFormat:@"%u", ntohl(networkSSRC)];
+    NSString *remoteUserID = [voiceUsersBySSRC objectForKey:ssrcKey];
     if (![remoteUserID length]) {
+        NSMutableArray *pendingPackets = [voicePendingPacketsBySSRC objectForKey:ssrcKey];
+        if (!pendingPackets) {
+            pendingPackets = [NSMutableArray array];
+            [voicePendingPacketsBySSRC setObject:pendingPackets forKey:ssrcKey];
+        }
+        // Discord can deliver RTP before its Voice Speaking metadata.  Keep a
+        // brief window rather than permanently discarding the first syllable.
+        if ([pendingPackets count] >= 12) [pendingPackets removeObjectAtIndex:0];
+        [pendingPackets addObject:packet];
         DLVoiceSetError(&voiceLastError, @"Waiting for Discord speaking metadata…");
         return;
     }
@@ -695,7 +708,14 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
     } else if (opcode == 5) {
         NSString *clientID = [data objectForKey:@"user_id"];
         NSNumber *ssrc = [data objectForKey:@"ssrc"];
-        if ([clientID length] && ssrc) [voiceUsersBySSRC setObject:clientID forKey:[ssrc stringValue]];
+        if ([clientID length] && ssrc) {
+            NSString *ssrcKey = [ssrc stringValue];
+            [voiceUsersBySSRC setObject:clientID forKey:ssrcKey];
+            NSArray *pendingPackets = [[voicePendingPacketsBySSRC objectForKey:ssrcKey] copy];
+            [voicePendingPacketsBySSRC removeObjectForKey:ssrcKey];
+            for (NSData *packet in pendingPackets) [self voiceUDPPacketReceived:packet];
+            [pendingPackets release];
+        }
     } else if (opcode == 22 && voiceDAVEEnabled && [[data objectForKey:@"protocol_version"] intValue] > 0) {
         NSString *helperError = nil;
         NSString *reply = [voiceHelper sendCommand:[NSString stringWithFormat:@"ACTIVATE %u", voiceSSRC] error:&helperError];
