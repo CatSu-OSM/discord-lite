@@ -801,6 +801,22 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
     [self sendVoiceWSTextData:[[CJSONSerializer serializer] serializeDictionary:ready error:nil]];
 }
 
+-(void)activateDAVEMedia {
+    if (!voiceDAVEEnabled || !voiceMedia) return;
+    NSString *helperError = nil;
+    NSString *reply = [voiceHelper sendCommand:[NSString stringWithFormat:@"ACTIVATE %u", voiceSSRC] error:&helperError];
+    if (![reply isEqualToString:@"MEDIA_READY"]) {
+        NSLog(@"DAVE media activation failed: %@ %@", reply, helperError);
+        return;
+    }
+    DLVoiceSetStatus(&voiceConnectionStatus, @"Voice media active; waiting for speech…");
+    if (!voiceCapture) {
+        voiceCapture = [[DLVoiceCapture alloc] initWithDelegate:self];
+        NSError *captureError = nil;
+        if (![voiceCapture start:&captureError]) NSLog(@"Voice microphone start failed: %@", captureError);
+    }
+}
+
 -(void)sendVoiceSpeaking {
     if (voiceIsSpeaking) return;
     NSDictionary *data = [NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithInt:1], @"speaking",
@@ -1021,17 +1037,7 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
             [pendingPackets release];
         }
     } else if (opcode == 22 && voiceDAVEEnabled) {
-        NSString *helperError = nil;
-        NSString *reply = [voiceHelper sendCommand:[NSString stringWithFormat:@"ACTIVATE %u", voiceSSRC] error:&helperError];
-        if (![reply isEqualToString:@"MEDIA_READY"]) NSLog(@"DAVE media activation failed: %@ %@", reply, helperError);
-        else if (voiceMedia) {
-            DLVoiceSetStatus(&voiceConnectionStatus, @"Voice media active; waiting for speech…");
-            [voiceCapture stop];
-            [voiceCapture release];
-            voiceCapture = [[DLVoiceCapture alloc] initWithDelegate:self];
-            NSError *captureError = nil;
-            if (![voiceCapture start:&captureError]) NSLog(@"Voice microphone start failed: %@", captureError);
-        }
+        [self activateDAVEMedia];
     } else if (opcode == 24 && voiceDAVEEnabled && [[data objectForKey:@"epoch"] intValue] == 1) {
         // An epoch-one transition needs a new, one-use key package.  The
         // helper retains and reapplies any External Sender package received
@@ -1069,7 +1075,13 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
         if (opcode == 30) command = [NSString stringWithFormat:@"WELCOME %@ %@", DLHexStringFromData(message), [[voiceClientIDs allObjects] componentsJoinedByString:@","]];
         else command = [NSString stringWithFormat:@"COMMIT %@", DLHexStringFromData(message)];
         NSString *reply = [voiceHelper sendCommand:command error:&error];
-        if ([reply isEqualToString:@"COMMIT_OK"] || [reply isEqualToString:@"WELCOME_OK"]) [self sendDAVEReadyForTransition:transitionID];
+        if ([reply isEqualToString:@"COMMIT_OK"] || [reply isEqualToString:@"WELCOME_OK"]) {
+            [self sendDAVEReadyForTransition:transitionID];
+            // The initialization transition is ready as soon as the first
+            // commit or welcome is installed.  The gateway may not emit an
+            // Execute Transition opcode for ID 0.
+            if (transitionID == 0) [self activateDAVEMedia];
+        }
     }
     if (error) NSLog(@"DAVE binary opcode %d failed: %@", opcode, error);
 }
