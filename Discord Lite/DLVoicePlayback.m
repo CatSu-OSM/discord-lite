@@ -58,6 +58,10 @@ static void DLVoicePlaybackCallback(void *userData, AudioQueueRef audioQueue, Au
         return NO;
     }
     queue = audioQueue;
+    // AudioQueue keeps this raw callback pointer, not an Objective-C retain.
+    // Hold an explicit reference until its final main-runloop callback drains.
+    [self retain];
+    queueRetainsPlayback = YES;
     running = YES;
     for (int index = 0; index < 3; index++) {
         AudioQueueBufferRef buffer = NULL;
@@ -86,6 +90,12 @@ static void DLVoicePlaybackCallback(void *userData, AudioQueueRef audioQueue, Au
     [lock unlock];
 }
 
+-(void)releaseAudioQueueOwnership {
+    // This balances the explicit retain made for one specific AudioQueue.
+    // A newer queue may already be running when this delayed release fires.
+    [self release];
+}
+
 -(void)stop {
     running = NO;
     if (queue) {
@@ -97,6 +107,13 @@ static void DLVoicePlaybackCallback(void *userData, AudioQueueRef audioQueue, Au
         AudioQueueStop(audioQueue, true);
         AudioQueueDispose(audioQueue, false);
         queue = NULL;
+    }
+    if (queueRetainsPlayback) {
+        // AudioQueue on 10.7 may have already posted one callback to the run
+        // loop even after synchronous stop/dispose.  Keep userData alive for
+        // that turn instead of allowing a use-after-free.
+        queueRetainsPlayback = NO;
+        [self performSelector:@selector(releaseAudioQueueOwnership) withObject:nil afterDelay:0.25];
     }
     memset(buffers, 0, sizeof(buffers));
     [lock lock];

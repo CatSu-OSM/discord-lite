@@ -8,6 +8,7 @@
     NSMutableArray *pendingPCM;
     NSLock *lock;
     BOOL running;
+    BOOL queueRetainsPlayback;
 }
 
 -(BOOL)start:(NSError **)error;
