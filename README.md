@@ -58,6 +58,12 @@ The project’s interface is code-built, so no XIB conversion or newer Interface
 
 The available features depend on Discord’s current API behavior and the target operating system. Text features target 10.6.8; modern Discord voice encryption needs C++17/libc++ and therefore has a separate 10.7 Intel baseline.
 
+The `voice-helper/` directory is that separate 10.7+ component. It keeps
+Discord's DAVE encryption library and CoreAudio out of the Snow-Leopard
+application target. Its bundled dependencies build a universal i386/x86_64
+`DiscordLiteVoiceHelper`; run `sh voice-helper/build-lion-helper.sh` on Lion
+to build and exercise its DAVE and audio-device self-test.
+
 ## Building the native voice encryption dependency
 
 Discord's current voice encryption uses `libdave`.  The source in
