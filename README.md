@@ -77,6 +77,21 @@ OS X 10.7.  It is a build prerequisite only: the client still needs the voice
 WebSocket, UDP/RTP, Opus, microphone, and output integration before voice chat
 is usable.
 
+### Media dependencies
+
+Voice media also requires static Opus and libsodium archives. On the modern
+cross-build host, install the one-time configure prerequisites and run:
+
+```sh
+brew install autoconf automake libtool
+export DISCORD_LITE_LEGACY_SDK=/path/to/MacOSX10.7.sdk
+export LIBDAVE_SOURCE_DIR=/path/to/libdave/cpp
+sh voice-build/build-media-i386-lion.sh
+```
+
+The resulting `libopus.a` and `libsodium.a` are installed below
+`$LIBDAVE_SOURCE_DIR/vcpkg/installed/i386-osx-107/lib/`.
+
 ## Current functional state
 
 ### Works
