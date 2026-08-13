@@ -90,12 +90,6 @@ static void DLVoicePlaybackCallback(void *userData, AudioQueueRef audioQueue, Au
     [lock unlock];
 }
 
--(void)releaseAudioQueueOwnership {
-    // This balances the explicit retain made for one specific AudioQueue.
-    // A newer queue may already be running when this delayed release fires.
-    [self release];
-}
-
 -(void)stop {
     running = NO;
     if (queue) {
@@ -109,11 +103,12 @@ static void DLVoicePlaybackCallback(void *userData, AudioQueueRef audioQueue, Au
         queue = NULL;
     }
     if (queueRetainsPlayback) {
-        // AudioQueue on 10.7 may have already posted one callback to the run
-        // loop even after synchronous stop/dispose.  Keep userData alive for
-        // that turn instead of allowing a use-after-free.
+        // AudioQueue on 10.7 can invoke a stale callback long after dispose.
+        // Its userData is a raw pointer, so keep this small callback owner for
+        // the process lifetime rather than releasing it into that stale call.
+        // A new voice session creates a separate owner; this trades a tiny
+        // bounded per-session allocation for crash-free audio on Lion.
         queueRetainsPlayback = NO;
-        [self performSelector:@selector(releaseAudioQueueOwnership) withObject:nil afterDelay:0.25];
     }
     memset(buffers, 0, sizeof(buffers));
     [lock lock];
