@@ -62,10 +62,14 @@ typedef enum {
 
 @interface DLWSController : NSObject {
     CURL *curlWebSocketHandle;
+    CURL *voiceWebSocketHandle;
     NSString *token;
     NSString *sessionID;
     NSTimer *heartbeatTimer;
+    NSTimer *voiceHeartbeatTimer;
     int heartbeatInterval;
+    int voiceHeartbeatInterval;
+    int voiceSequenceNumber;
     id<DLWSControllerDelegate> delegate;
     BOOL heartbeatResponseReceived;
     BOOL shouldResume;
@@ -78,6 +82,7 @@ typedef enum {
     NSString *pendingVoiceSessionID;
     NSString *pendingVoiceEndpoint;
     NSString *pendingVoiceToken;
+    BOOL voiceConnectionStarting;
 }
 
 +(DLWSController *)sharedInstance;

@@ -11,6 +11,7 @@
 @implementation DLWSController
 
 static NSMutableData* receivedWSData;
+static NSMutableData* receivedVoiceWSData;
 
 static DLWSController* sharedObject = nil;
 
@@ -101,6 +102,14 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     if (curlWebSocketHandle) {
         curl_easy_setopt(curlWebSocketHandle, CURLOPT_TIMEOUT_MS, 1);
     }
+    if (voiceHeartbeatTimer) {
+        [voiceHeartbeatTimer invalidate];
+        voiceHeartbeatTimer = nil;
+    }
+    if (voiceWebSocketHandle) {
+        curl_easy_setopt(voiceWebSocketHandle, CURLOPT_TIMEOUT_MS, 1);
+    }
+    voiceConnectionStarting = NO;
     shouldResume = NO;
 }
 -(void)sendWSTextData:(NSData *)textData {
@@ -181,6 +190,14 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     pendingVoiceEndpoint = nil;
     [pendingVoiceToken release];
     pendingVoiceToken = nil;
+    if (voiceHeartbeatTimer) {
+        [voiceHeartbeatTimer invalidate];
+        voiceHeartbeatTimer = nil;
+    }
+    if (voiceWebSocketHandle) {
+        curl_easy_setopt(voiceWebSocketHandle, CURLOPT_TIMEOUT_MS, 1);
+    }
+    voiceConnectionStarting = NO;
 
     // The media connection is negotiated separately after the gateway confirms this state.
     NSMutableDictionary *data = [[NSMutableDictionary alloc] init];
@@ -199,16 +216,118 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     [data release];
 }
 
+static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
+    if (!receivedVoiceWSData) {
+        receivedVoiceWSData = [[NSMutableData alloc] init];
+    }
+    CURL *easy = p;
+    const struct curl_ws_frame *frame = curl_ws_meta(easy);
+    [receivedVoiceWSData appendBytes:b length:nitems * size];
+    if (frame->bytesleft < 1) {
+        NSData *voiceData = [NSData dataWithData:receivedVoiceWSData];
+        [[DLWSController sharedInstance] performSelectorOnMainThread:@selector(voiceWSTextDataReceived:)
+                                                           withObject:voiceData waitUntilDone:YES];
+        [receivedVoiceWSData release];
+        receivedVoiceWSData = nil;
+    }
+    return nitems;
+}
+
 -(void)notifyVoiceConnectionIfReady {
     if (!DLVoiceStringIsUsable(pendingVoiceGuildID) || !DLVoiceStringIsUsable(pendingVoiceChannelID) ||
         !DLVoiceStringIsUsable(pendingVoiceSessionID) || !DLVoiceStringIsUsable(pendingVoiceEndpoint) ||
         !DLVoiceStringIsUsable(pendingVoiceToken) || !DLVoiceStringIsUsable(userID)) {
         return;
     }
+    if (voiceConnectionStarting) {
+        return;
+    }
+    voiceConnectionStarting = YES;
     if ([delegate respondsToSelector:@selector(wsVoiceConnectionReadyForGuildID:channelID:sessionID:endpoint:token:userID:)]) {
         [delegate wsVoiceConnectionReadyForGuildID:pendingVoiceGuildID channelID:pendingVoiceChannelID
                                          sessionID:pendingVoiceSessionID endpoint:pendingVoiceEndpoint
                                             token:pendingVoiceToken userID:userID];
+    }
+    [NSThread detachNewThreadSelector:@selector(startVoiceWebSocketThread) toTarget:self withObject:nil];
+}
+
+-(void)startVoiceWebSocketThread {
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+    NSString *voiceURL = [NSString stringWithFormat:@"wss://%@/?v=8", pendingVoiceEndpoint];
+    voiceWebSocketHandle = curl_easy_init();
+    if (voiceWebSocketHandle) {
+        curl_easy_setopt(voiceWebSocketHandle, CURLOPT_URL, [voiceURL UTF8String]);
+        curl_easy_setopt(voiceWebSocketHandle, CURLOPT_SSL_VERIFYPEER, 0L);
+        curl_easy_setopt(voiceWebSocketHandle, CURLOPT_USERAGENT, [[DLUtil userAgentString] UTF8String]);
+        curl_easy_setopt(voiceWebSocketHandle, CURLOPT_WRITEFUNCTION, voicewritecb);
+        curl_easy_setopt(voiceWebSocketHandle, CURLOPT_WRITEDATA, voiceWebSocketHandle);
+        CURLcode result = curl_easy_perform(voiceWebSocketHandle);
+        if (result != CURLE_OK) {
+            NSLog(@"Voice WebSocket closed: %s", curl_easy_strerror(result));
+        }
+        curl_easy_cleanup(voiceWebSocketHandle);
+        voiceWebSocketHandle = nil;
+    }
+    voiceConnectionStarting = NO;
+    [pool release];
+}
+
+-(void)sendVoiceWSTextData:(NSData *)textData {
+    if (voiceWebSocketHandle) {
+        size_t sent;
+        curl_ws_send(voiceWebSocketHandle, [textData bytes], [textData length], &sent, 0, CURLWS_TEXT);
+    }
+}
+
+-(void)sendVoiceHeartbeat {
+    NSDictionary *heartbeatData = [NSDictionary dictionaryWithObjectsAndKeys:
+                                   [NSNumber numberWithLongLong:[[NSDate date] timeIntervalSince1970] * 1000], @"t",
+                                   [NSNumber numberWithInt:voiceSequenceNumber], @"seq_ack", nil];
+    NSDictionary *heartbeat = [NSDictionary dictionaryWithObjectsAndKeys:
+                               [NSNumber numberWithInt:3], @kWSOperation, heartbeatData, @kWSData, nil];
+    NSData *payload = [[CJSONSerializer serializer] serializeDictionary:heartbeat error:nil];
+    [self sendVoiceWSTextData:payload];
+}
+
+-(void)sendVoiceIdentify {
+    NSMutableDictionary *data = [[NSMutableDictionary alloc] init];
+    [data setObject:pendingVoiceGuildID forKey:@"server_id"];
+    [data setObject:userID forKey:@"user_id"];
+    [data setObject:pendingVoiceSessionID forKey:@"session_id"];
+    [data setObject:pendingVoiceToken forKey:@"token"];
+    // The DAVE library is built separately for Lion but is not linked into the
+    // app yet, so accurately advertise no DAVE implementation for now.
+    [data setObject:[NSNumber numberWithInt:0] forKey:@"max_dave_protocol_version"];
+    NSDictionary *identify = [NSDictionary dictionaryWithObjectsAndKeys:
+                              [NSNumber numberWithInt:0], @kWSOperation, data, @kWSData, nil];
+    NSData *payload = [[CJSONSerializer serializer] serializeDictionary:identify error:nil];
+    [self sendVoiceWSTextData:payload];
+    [data release];
+}
+
+-(void)voiceWSTextDataReceived:(NSData *)textData {
+    NSDictionary *response = [[CJSONDeserializer deserializer] deserializeAsDictionary:textData error:nil];
+    if (!response) {
+        return;
+    }
+    if ([response objectForKey:@"seq"]) {
+        voiceSequenceNumber = [[response objectForKey:@"seq"] intValue];
+    }
+    int opcode = [[response objectForKey:@kWSOperation] intValue];
+    NSDictionary *data = [response objectForKey:@kWSData];
+    if (opcode == 8) {
+        voiceHeartbeatInterval = [[data objectForKey:@"heartbeat_interval"] intValue];
+        if (voiceHeartbeatTimer) {
+            [voiceHeartbeatTimer invalidate];
+        }
+        voiceHeartbeatTimer = [NSTimer scheduledTimerWithTimeInterval:voiceHeartbeatInterval / 1000.0
+                                                                target:self selector:@selector(sendVoiceHeartbeat)
+                                                              userInfo:nil repeats:YES];
+        [self sendVoiceIdentify];
+    } else if (opcode == 2) {
+        NSLog(@"Voice server ready at %@:%@", [data objectForKey:@"ip"], [data objectForKey:@"port"]);
+    } else if (opcode == 4) {
+        NSLog(@"Voice session description received; UDP discovery and media transport are next.");
     }
 }
 
