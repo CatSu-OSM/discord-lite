@@ -14,10 +14,12 @@
     NSFileHandle *output;
     NSMutableData *pendingOutput;
     NSString *initialKeyPackage;
+    NSData *externalSenderPackage;
 }
 
 -(BOOL)startForUserID:(NSString *)userID groupID:(NSString *)groupID error:(NSString **)error;
 -(NSString *)initialKeyPackage;
+-(BOOL)setExternalSenderPackage:(NSData *)package error:(NSString **)error;
 -(NSString *)sendCommand:(NSString *)command error:(NSString **)error;
 -(void)stop;
 

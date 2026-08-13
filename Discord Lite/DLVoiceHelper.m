@@ -6,6 +6,14 @@
 #import <Cocoa/Cocoa.h>
 #import "DLVoiceHelper.h"
 
+static NSString *DLVoiceHexStringFromData(NSData *data) {
+    const unsigned char *bytes = [data bytes];
+    NSMutableString *result = [NSMutableString stringWithCapacity:[data length] * 2];
+    NSUInteger i;
+    for (i = 0; i < [data length]; i++) [result appendFormat:@"%02x", bytes[i]];
+    return result;
+}
+
 @implementation DLVoiceHelper
 
 -(id)init {
@@ -18,6 +26,7 @@
     [self stop];
     [pendingOutput release];
     [initialKeyPackage release];
+    [externalSenderPackage release];
     [super dealloc];
 }
 
@@ -60,11 +69,30 @@
     }
     [initialKeyPackage release];
     initialKeyPackage = [[response substringFromIndex:[@"KEY_PACKAGE " length]] retain];
+    if ([externalSenderPackage length] && ![self setExternalSenderPackage:externalSenderPackage error:error]) {
+        [self stop];
+        return NO;
+    }
     return YES;
 }
 
 -(NSString *)initialKeyPackage {
     return initialKeyPackage;
+}
+
+-(BOOL)setExternalSenderPackage:(NSData *)package error:(NSString **)error {
+    if (![package length]) {
+        if (error) *error = @"The DAVE external sender package is empty.";
+        return NO;
+    }
+    NSData *savedPackage = [package copy];
+    [externalSenderPackage release];
+    externalSenderPackage = savedPackage;
+    if (!task || ![task isRunning]) return YES;
+    NSString *reply = [self sendCommand:[NSString stringWithFormat:@"EXTERNAL_SENDER %@", DLVoiceHexStringFromData(package)] error:error];
+    if ([reply isEqualToString:@"OK"]) return YES;
+    if (error && !*error) *error = reply ? reply : @"The DAVE helper rejected the external sender package.";
+    return NO;
 }
 
 -(NSString *)sendCommand:(NSString *)command error:(NSString **)error {

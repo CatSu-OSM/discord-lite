@@ -1033,14 +1033,13 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
             if (![voiceCapture start:&captureError]) NSLog(@"Voice microphone start failed: %@", captureError);
         }
     } else if (opcode == 24 && voiceDAVEEnabled && [[data objectForKey:@"epoch"] intValue] == 1) {
-        // INIT has already prepared this pending group and supplied its key
-        // package.  Do not restart it here: doing so can discard an External
-        // Sender package received just before Prepare Epoch.  A prepared
-        // participant must acknowledge the transition before the gateway can
-        // execute it and enable DAVE media.
-        NSNumber *transitionID = [data objectForKey:@"transition_id"];
-        if (transitionID) [self sendDAVEReadyForTransition:[transitionID unsignedIntegerValue]];
-        else NSLog(@"DAVE Prepare Epoch did not include a transition ID.");
+        // An epoch-one transition needs a new, one-use key package.  The
+        // helper retains and reapplies any External Sender package received
+        // before this reset.  Transition Ready follows the resulting commit
+        // or welcome, not merely this preparation notification.
+        NSString *helperError = nil;
+        if ([voiceHelper startForUserID:userID groupID:pendingVoiceChannelID error:&helperError]) [self sendDAVEKeyPackage];
+        else NSLog(@"DAVE epoch reset failed: %@", helperError);
     }
 }
 
@@ -1051,7 +1050,7 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
     NSData *payload = [frame subdataWithRange:NSMakeRange(3, [frame length] - 3)];
     NSString *error = nil;
     if (opcode == 25) {
-        [voiceHelper sendCommand:[NSString stringWithFormat:@"EXTERNAL_SENDER %@", DLHexStringFromData(payload)] error:&error];
+        [voiceHelper setExternalSenderPackage:payload error:&error];
     } else if (opcode == 27) {
         NSString *users = [[voiceClientIDs allObjects] componentsJoinedByString:@","];
         NSString *reply = [voiceHelper sendCommand:[NSString stringWithFormat:@"PROPOSALS %@ %@", DLHexStringFromData(payload), [users length] ? users : @"-"] error:&error];
