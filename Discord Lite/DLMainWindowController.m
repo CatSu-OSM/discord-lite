@@ -1748,7 +1748,12 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
 
 -(void)chatScrollViewBoundsDidChange:(NSNotification *)note {
     NSClipView *scrolledClipView = [note object];
-    if ([chatScrollView.documentView bounds].size.height <= [scrolledClipView bounds].size.height + [scrolledClipView bounds].origin.y) {
+    NSRect visibleBounds = [scrolledClipView bounds];
+    CGFloat documentHeight = [chatScrollView.documentView bounds].size.height;
+    CGFloat historyEdgeY = MAX(0.0f, documentHeight - visibleBounds.size.height);
+    // Loading more history is deliberate: do not request it until the user has
+    // actually reached the oldest visible edge of the chat.
+    if (documentHeight > visibleBounds.size.height && visibleBounds.origin.y >= historyEdgeY - 1.0f) {
         if (!isLoadingMessages) {
             isLoadingMessages = YES;
             if ([[DLController sharedInstance] selectedChannel]) {

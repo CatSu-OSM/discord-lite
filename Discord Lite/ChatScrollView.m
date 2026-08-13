@@ -151,7 +151,10 @@
     [super scrollWheel:theEvent];
 }
 -(void)appendContent:(NSArray *)inContent {
+    NSClipView *clipView = [self contentView];
+    NSRect visibleBounds = [clipView bounds];
     CGFloat height = [self.documentView frame].size.height;
+    BOOL wasAtHistoryEdge = (visibleBounds.origin.y + visibleBounds.size.height >= height - 1.0f);
     NSEnumerator *e = [inContent objectEnumerator];
     ChatItemViewController *item;
     while (item = [e nextObject]) {
@@ -174,6 +177,12 @@
     [self.documentView setFrame: frame];
     [self.documentView setNeedsDisplay:YES];
     [self screenResize];
+    if (wasAtHistoryEdge) {
+        NSRect documentBounds = [[self documentView] bounds];
+        CGFloat historyEdgeY = MAX(0.0f, NSHeight(documentBounds) - visibleBounds.size.height);
+        [clipView scrollToPoint:NSMakePoint(visibleBounds.origin.x, historyEdgeY)];
+        [self reflectScrolledClipView:clipView];
+    }
     [self performSelector:@selector(screenResize) withObject:nil afterDelay:0.5];
 }
 -(void)prependViewController:(ChatItemViewController *)vc {
