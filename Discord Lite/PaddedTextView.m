@@ -10,13 +10,25 @@
 
 @implementation PaddedTextView
 
+- (id)initWithFrame:(NSRect)frameRect {
+    self = [super initWithFrame:frameRect];
+    if (self) {
+        [self setFont:[NSFont systemFontOfSize:[NSFont systemFontSize]]];
+        [self setTextContainerInset:NSMakeSize(0.0f, 3.0f)];
+        [self setInsertionPointColor:[NSColor whiteColor]];
+    }
+    return self;
+}
+
 - (void)drawRect:(NSRect)dirtyRect {
     [super drawRect:dirtyRect];
     // Drawing code here.
 }
 
 - (void)awakeFromNib {
-    [super setTextContainerInset:NSMakeSize(0.0f, 3.0f)];
+    [super awakeFromNib];
+    [self setTextContainerInset:NSMakeSize(0.0f, 3.0f)];
+    [self setInsertionPointColor:[NSColor whiteColor]];
 }
 
 @end
