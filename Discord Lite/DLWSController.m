@@ -748,37 +748,26 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
     request[3] = 0x46;
     uint32_t ssrc = htonl(voiceSSRC);
     memcpy(request + 4, &ssrc, sizeof(ssrc));
-    NSMutableArray *candidates = [NSMutableArray arrayWithObject:voiceServerIP];
-    // Some legacy DNS/network combinations route Discord's Ready address to a
-    // non-responsive Anycast edge. Retry the authenticated voice endpoint's
-    // A records on the same port before declaring UDP unavailable.
-    NSString *endpointHostName = pendingVoiceEndpoint;
-    NSRange endpointPortSeparator = [endpointHostName rangeOfString:@":"];
-    if (endpointPortSeparator.location != NSNotFound) endpointHostName = [endpointHostName substringToIndex:endpointPortSeparator.location];
-    NSHost *endpointHost = [NSHost hostWithName:endpointHostName];
-    NSEnumerator *addressEnumerator = [[endpointHost addresses] objectEnumerator];
-    NSData *packedAddress;
-    while ((packedAddress = [addressEnumerator nextObject])) {
-        if ([packedAddress length] == sizeof(struct in_addr)) {
-            NSString *candidate = [NSString stringWithUTF8String:inet_ntoa(*(struct in_addr *)[packedAddress bytes])];
-            if (candidate && ![candidates containsObject:candidate]) [candidates addObject:candidate];
-        }
+    struct sockaddr_in serverAddress;
+    memset(&serverAddress, 0, sizeof(serverAddress));
+    serverAddress.sin_family = AF_INET;
+    serverAddress.sin_port = htons((uint16_t)voiceServerPort);
+    if (inet_aton([voiceServerIP UTF8String], &serverAddress.sin_addr) == 0 ||
+        connect(socketFD, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0) {
+        [self performSelectorOnMainThread:@selector(voiceUDPDiscoveryFailed:) withObject:@"Could not connect the UDP voice socket to Discord." waitUntilDone:NO];
+        close(socketFD);
+        if (voiceUDPSocket == socketFD) voiceUDPSocket = -1;
+        [pool release];
+        return;
     }
+    // Keep one socket and one server address for the entire session.  Discord
+    // associates the discovery response with this authenticated Ready edge.
     unsigned char response[70];
     ssize_t responseLength = -1;
-    NSString *respondingServerIP = nil;
-    NSEnumerator *candidateEnumerator = [candidates objectEnumerator];
-    NSString *candidate;
-    while ((candidate = [candidateEnumerator nextObject])) {
-        struct sockaddr_in serverAddress;
-        memset(&serverAddress, 0, sizeof(serverAddress));
-        serverAddress.sin_family = AF_INET;
-        serverAddress.sin_port = htons((uint16_t)voiceServerPort);
-        if (inet_aton([candidate UTF8String], &serverAddress.sin_addr) == 0) continue;
-        if (sendto(socketFD, request, sizeof(request), 0, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0) continue;
-        responseLength = recvfrom(socketFD, response, sizeof(response), 0, NULL, NULL);
+    for (NSUInteger attempt = 0; attempt < 3; attempt++) {
+        if (send(socketFD, request, sizeof(request), 0) < 0) continue;
+        responseLength = recv(socketFD, response, sizeof(response), 0);
         if (responseLength >= 70) {
-            respondingServerIP = candidate;
             break;
         }
     }
@@ -789,7 +778,7 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
     }
     if (responseLength < 70) {
         NSLog(@"Voice UDP discovery did not receive a valid response.");
-        [self performSelectorOnMainThread:@selector(voiceUDPDiscoveryFailed:) withObject:@"Discord did not answer UDP discovery from this Ready address or endpoint fallback." waitUntilDone:NO];
+        [self performSelectorOnMainThread:@selector(voiceUDPDiscoveryFailed:) withObject:@"Discord did not answer three UDP discovery probes from its Ready address." waitUntilDone:NO];
         close(socketFD);
         if (voiceUDPSocket == socketFD) voiceUDPSocket = -1;
         [pool release];
@@ -799,7 +788,7 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
     while (addressLength < 64 && response[4 + addressLength] != '\0') addressLength++;
     NSString *address = [[[NSString alloc] initWithBytes:response + 4 length:addressLength encoding:NSASCIIStringEncoding] autorelease];
     NSInteger port = ((NSInteger)response[68] << 8) | response[69];
-    NSDictionary *result = [NSDictionary dictionaryWithObjectsAndKeys:address, @"address", [NSNumber numberWithInteger:port], @"port", respondingServerIP, @"server_ip", nil];
+    NSDictionary *result = [NSDictionary dictionaryWithObjectsAndKeys:address, @"address", [NSNumber numberWithInteger:port], @"port", voiceServerIP, @"server_ip", nil];
     [self performSelectorOnMainThread:@selector(voiceUDPDiscoveryCompleted:) withObject:result waitUntilDone:NO];
     [pool release];
 }
