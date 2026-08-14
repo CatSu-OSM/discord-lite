@@ -309,6 +309,16 @@ static NSUInteger pendingAvatarLoadCount = 0;
     delegate = inDelegate;
 }
 
+-(void)setAsFriendsItem {
+    friendsItem = YES;
+    [usernameTextField setStringValue:@"Friends"];
+    [usernameTextField setTextColor:[NSColor whiteColor]];
+    [avatarImageView setImage:[NSImage imageNamed:NSImageNameUserGroup]];
+    [notificationBadgeLabel setHidden:YES];
+}
+
+-(BOOL)isFriendsItem { return friendsItem; }
+
 -(void)mouseWasDepressedWithEvent:(NSEvent *)event {
     [delegate dmChannelItemWasSelected:self];
     [self setSelected:YES];

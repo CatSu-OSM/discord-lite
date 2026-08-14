@@ -1249,6 +1249,13 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
     [self setDiscordLitePresence];
                 [delegate wsDidReceiveServerData:[wsData objectForKey:@"guilds"]];
                 [delegate wsDidReceiveUserSettingsData:[wsData objectForKey:@"user_settings"]];
+                [delegate wsDidReceiveRelationshipData:[wsData objectForKey:@"relationships"]];
+                NSArray *readyPresences = [wsData objectForKey:@"presences"];
+                NSEnumerator *presenceEnumerator = [readyPresences objectEnumerator];
+                NSDictionary *readyPresence;
+                while (readyPresence = [presenceEnumerator nextObject]) {
+                    [delegate wsDidReceivePresenceData:readyPresence forServerWithID:[readyPresence objectForKey:@"guild_id"]];
+                }
                 [delegate wsDidReceiveUserData:[wsData objectForKey:@"user"]];
                 [delegate wsDidReceivePrivateChannelData:[wsData objectForKey:@"private_channels"]];
                 [delegate wsDidLoadAllDataAfterReconnection:didReconnect];

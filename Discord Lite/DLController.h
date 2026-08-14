@@ -71,6 +71,7 @@ typedef enum {
     NSMutableArray *serverOrder;
     NSMutableDictionary *loadedChannels;
     NSMutableArray *loadedMessages;
+    NSMutableArray *relationships;
     NSString *authFingerprint;
 }
 
@@ -108,6 +109,8 @@ typedef enum {
 -(NSArray *)userServers;
 -(NSArray *)channelsForServer:(DLServer *)s;
 -(NSArray *)directMessageChannels;
+-(NSArray *)relationshipsForTab:(NSInteger)tab;
+-(void)wsDidReceiveRelationshipData:(NSArray *)data;
 
 -(NSString *)authFingerprint;
 

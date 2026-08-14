@@ -514,6 +514,54 @@
 
 const NSTimeInterval TYPING_SEND_INTERVAL = 8.0;
 const CGFloat MY_USER_AVATAR_RADIUS = 18.0f;
+
+-(void)selectFriendsTab:(id)sender {
+    NSUInteger i;
+    for (i = 0; i < [friendsTabs count]; i++) [[friendsTabs objectAtIndex:i] setState:(([friendsTabs objectAtIndex:i] == sender) ? NSOnState : NSOffState)];
+    [self reloadFriendsList];
+}
+
+-(void)reloadFriendsList {
+    NSEnumerator *oldRows = [friendRows objectEnumerator]; NSView *oldRow;
+    while (oldRow = [oldRows nextObject]) [oldRow removeFromSuperview];
+    [friendRows removeAllObjects]; [friendAvatarViews removeAllObjects];
+    NSUInteger selected = 0, i;
+    for (i = 0; i < [friendsTabs count]; i++) if ([[friendsTabs objectAtIndex:i] state] == NSOnState) selected = i;
+    NSArray *users = [[DLController sharedInstance] relationshipsForTab:selected];
+    CGFloat height = MAX([[friendsScrollView contentView] bounds].size.height, ([users count] * 62.0f) + 12.0f);
+    [friendsDocumentView setFrameSize:NSMakeSize([[friendsScrollView contentView] bounds].size.width, height)];
+    CGFloat y = height - 56.0f; NSEnumerator *e = [users objectEnumerator]; DLUser *user;
+    while (user = [e nextObject]) {
+        NSView_BGColor *row = [[[NSView_BGColor alloc] initWithFrame:NSMakeRect(18.0f, y, [friendsDocumentView frame].size.width - 36.0f, 56.0f)] autorelease];
+        [row setAutoresizingMask:NSViewWidthSizable | NSViewMinYMargin];
+        NSImageView *avatar = [[[NSImageView alloc] initWithFrame:NSMakeRect(6, 8, 40, 40)] autorelease];
+        [avatar setImage:[DLUtil imageResize:[[[NSImage alloc] initWithData:[user avatarImageData]] autorelease] newSize:[avatar frame].size cornerRadius:20.0f status:[user status]]];
+        [row addSubview:avatar]; [friendAvatarViews setObject:avatar forKey:[user userID]]; [user setDelegate:self]; [user loadAvatarData];
+        NSTextField *name = [[[NSTextField alloc] initWithFrame:NSMakeRect(58, 28, [row frame].size.width - 70, 18)] autorelease];
+        [name setEditable:NO]; [name setBordered:NO]; [name setDrawsBackground:NO]; [name setFont:[NSFont boldSystemFontOfSize:14]]; [name setTextColor:[NSColor whiteColor]]; [name setStringValue:[user globalName]]; [row addSubview:name];
+        NSTextField *detail = [[[NSTextField alloc] initWithFrame:NSMakeRect(58, 10, [row frame].size.width - 70, 16)] autorelease];
+        [detail setEditable:NO]; [detail setBordered:NO]; [detail setDrawsBackground:NO]; [detail setFont:[NSFont systemFontOfSize:12]]; [detail setTextColor:[NSColor colorWithCalibratedWhite:0.62f alpha:1.0f]];
+        if ([user activityText] && [[user activityText] length]) [detail setStringValue:[user activityText]]; else if (selected == 2) [detail setStringValue:@"Pending friend request"]; else if (selected == 3) [detail setStringValue:@"Blocked"]; else [detail setStringValue:[NSString stringWithFormat:@"@%@", [user username]]];
+        [row addSubview:detail]; [friendsDocumentView addSubview:row]; [friendRows addObject:row]; y -= 62.0f;
+    }
+    NSArray *titles = [NSArray arrayWithObjects:@"Online", @"All", @"Pending", @"Blocked", nil];
+    [friendsStatusLabel setStringValue:[NSString stringWithFormat:@"%@ — %lu", [titles objectAtIndex:selected], (unsigned long)[users count]]];
+}
+
+-(void)buildFriendsList {
+    friendsTabs = [[NSMutableArray alloc] init]; friendRows = [[NSMutableArray alloc] init]; friendAvatarViews = [[NSMutableDictionary alloc] init];
+    NSArray *titles = [NSArray arrayWithObjects:@"Online", @"All", @"Pending", @"Blocked", nil]; CGFloat x = 138.0f; NSUInteger i;
+    for (i = 0; i < [titles count]; i++) { NSButton *tab = [[[NSButton alloc] initWithFrame:NSMakeRect(x, 8, 70, 25)] autorelease]; [tab setTitle:[titles objectAtIndex:i]]; [tab setBezelStyle:NSShadowlessSquareBezelStyle]; [tab setTarget:self]; [tab setAction:@selector(selectFriendsTab:)]; [tab setHidden:YES]; [chatViewHeader addSubview:tab]; [friendsTabs addObject:tab]; x += 70.0f; }
+    [[friendsTabs objectAtIndex:0] setState:NSOnState];
+    NSRect frame = NSUnionRect([chatScrollView frame], [messageEntryContainerView frame]);
+    friendsContentView = [[NSView_BGColor alloc] initWithFrame:frame]; [friendsContentView setBackgroundColor:[chatScrollView backgroundColor]]; [friendsContentView setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable]; [friendsContentView setHidden:YES]; [[chatScrollView superview] addSubview:friendsContentView];
+    friendsStatusLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(24, frame.size.height - 43, 260, 18)]; [friendsStatusLabel setEditable:NO]; [friendsStatusLabel setBordered:NO]; [friendsStatusLabel setDrawsBackground:NO]; [friendsStatusLabel setTextColor:[NSColor whiteColor]]; [friendsContentView addSubview:friendsStatusLabel];
+    friendsScrollView = [[NSScrollView alloc] initWithFrame:NSMakeRect(0, 0, frame.size.width, frame.size.height - 56)]; [friendsScrollView setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable]; [friendsScrollView setHasVerticalScroller:YES]; [friendsScrollView setAutohidesScrollers:YES]; [friendsScrollView setBorderType:NSNoBorder];
+    friendsDocumentView = [[NSView alloc] initWithFrame:[[friendsScrollView contentView] bounds]]; [friendsScrollView setDocumentView:friendsDocumentView]; [friendsContentView addSubview:friendsScrollView];
+}
+
+-(void)showFriendsList { [self hideMemberList]; friendsVisible = YES; [chatHeaderLabel setStringValue:@"Friends"]; [chatScrollView setHidden:YES]; [messageEntryContainerView setHidden:YES]; NSEnumerator *e = [friendsTabs objectEnumerator]; NSButton *tab; while (tab = [e nextObject]) [tab setHidden:NO]; [self reloadFriendsList]; [friendsContentView setHidden:NO]; }
+-(void)hideFriendsList { if (!friendsVisible) return; friendsVisible = NO; [friendsContentView setHidden:YES]; [chatScrollView setHidden:NO]; [messageEntryContainerView setHidden:NO]; NSEnumerator *e = [friendsTabs objectEnumerator]; NSButton *tab; while (tab = [e nextObject]) [tab setHidden:YES]; }
 const CGFloat MEMBER_LIST_WIDTH = 220.0f;
 const NSInteger MEMBER_LIST_PAGE_SIZE = 30;
 const NSInteger MEMBER_LIST_INITIAL_LOAD_SIZE = 30;
@@ -1265,6 +1313,7 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(userPresenceDidUpdate:) name:DLUserPresenceDidUpdateNotification object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(serversScrollViewBoundsDidChange:) name:NSViewBoundsDidChangeNotification object:serversScrollView.contentView];
     [self setupMemberListPanel];
+    [self buildFriendsList];
     [self setupEmojiButton];
     // Implement this method to handle any initialization after your window controller's window has been loaded from its nib file.
     [myUserAvatarImage setImage:[DLUtil imageResize:[[[NSImage alloc] initWithContentsOfFile:[[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:@"discord_placeholder.png"]] autorelease] newSize:myUserAvatarImage.frame.size cornerRadius:MY_USER_AVATAR_RADIUS]];
@@ -1453,6 +1502,9 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
 
         NSArray *channels = [[DLController sharedInstance] directMessageChannels];
         NSMutableArray *views = [[NSMutableArray alloc] init];
+        DirectMessageItemViewController *friends = [[DirectMessageItemViewController alloc] initWithNibNamed:@"DirectMessageItemViewController" bundle:nil];
+        [friends setDelegate:self]; [friends setAsFriendsItem];
+        [views addObject:friends]; [friends release];
         NSEnumerator *e = [channels objectEnumerator];
         DLDirectMessageChannel *item;
         while (item = [e nextObject]) {
@@ -1472,6 +1524,7 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
         [channelViews release];
         channelViews = views;
         isLoadingViews = NO;
+        [self performSelectorOnMainThread:@selector(showFriendsList) withObject:nil waitUntilDone:NO];
     }
 
     [autoreleasepool release];
@@ -1874,6 +1927,8 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
 
 -(void)user:(DLUser *)u avatarDidUpdateWithData:(NSData *)data {
     [myUserAvatarImage setImage:[DLUtil imageResize:[[[NSImage alloc] initWithData:data] autorelease] newSize:myUserAvatarImage.frame.size cornerRadius:MY_USER_AVATAR_RADIUS status:[u status]]];
+    NSImageView *friendAvatar = [friendAvatarViews objectForKey:[u userID]];
+    if (friendAvatar) [friendAvatar setImage:[DLUtil imageResize:[[[NSImage alloc] initWithData:data] autorelease] newSize:[friendAvatar frame].size cornerRadius:20.0f status:[u status]]];
 }
 
 -(void)userPresenceDidUpdate:(NSNotification *)note {
@@ -1881,9 +1936,11 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
     if ([u isEqual:[[DLController sharedInstance] myUser]]) {
         [myUserAvatarImage setImage:[DLUtil imageResize:[[[NSImage alloc] initWithData:[u avatarImageData]] autorelease] newSize:myUserAvatarImage.frame.size cornerRadius:MY_USER_AVATAR_RADIUS status:[u status]]];
     }
+    if (friendsVisible) [self reloadFriendsList];
 }
 
 -(void)serverItemWasSelected:(ServerItemViewController *)item {
+    [self hideFriendsList];
     NSEnumerator *e = [serverViews objectEnumerator];
     ServerItemViewController *itm;
     while (itm = [e nextObject]) {
@@ -1983,6 +2040,8 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
     }
 }
 -(void)dmChannelItemWasSelected:(DirectMessageItemViewController *)item {
+    if ([item isFriendsItem]) { [self showFriendsList]; return; }
+    [self hideFriendsList];
     lastMessage = nil;
     NSEnumerator *e = [channelViews objectEnumerator];
     DirectMessageItemViewController *itm;

@@ -31,6 +31,7 @@
     BOOL nameplateLoadScheduled;
     id<DMChannelItemDelegate> delegate;
     IBOutlet BadgeTextField *notificationBadgeLabel;
+    BOOL friendsItem;
 }
 
 -(DLDirectMessageChannel *)representedObject;
@@ -39,5 +40,7 @@
 -(void)setSelected:(BOOL)selected;
 -(void)setRepresentedObject:(DLDirectMessageChannel *)c;
 -(void)setDelegate:(id<DMChannelItemDelegate>)inDelegate;
+-(void)setAsFriendsItem;
+-(BOOL)isFriendsItem;
 
 @end

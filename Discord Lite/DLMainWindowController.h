@@ -109,6 +109,14 @@ typedef enum {
     NSRect chatScrollViewFullFrame;
     NSRect chatHeaderFullFrame;
     NSRect messageEntryContainerFullFrame;
+    NSView_BGColor *friendsContentView;
+    NSScrollView *friendsScrollView;
+    NSView *friendsDocumentView;
+    NSTextField *friendsStatusLabel;
+    NSMutableArray *friendsTabs;
+    NSMutableArray *friendRows;
+    NSMutableDictionary *friendAvatarViews;
+    BOOL friendsVisible;
     
     NSMutableArray *typingUsers;
     

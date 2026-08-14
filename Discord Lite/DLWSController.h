@@ -54,6 +54,7 @@ typedef enum {
 -(void)wsDidReceiveReadStateData:(NSArray *)data;
 -(void)wsDidReceiveUserData:(NSDictionary *)data;
 -(void)wsDidReceiveUserSettingsData:(NSDictionary *)data;
+-(void)wsDidReceiveRelationshipData:(NSArray *)data;
 -(void)wsDidLoadAllDataAfterReconnection:(BOOL)didReconnect;
 -(void)wsDidAcknowledgeMessage:(DLMessage *)m;
 -(void)wsUserWithID:(NSString *)userID didStartTypingInServerWithID:(NSString *)serverID inChannelWithID:(NSString *)channelID withMemberData:(NSDictionary *)memberData;

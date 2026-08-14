@@ -19,6 +19,7 @@ static DLController* sharedObject = nil;
     loadedServers = [[NSMutableDictionary alloc] init];
     serverOrder = [[NSMutableArray alloc] init];
     loadedMessages = [[NSMutableArray alloc] init];
+    relationships = [[NSMutableArray alloc] init];
     [[AsyncHTTPRequestSettings sharedInstance] setUserAgentString:[DLUtil userAgentString]];
     [[AsyncHTTPRequestSettings sharedInstance] setPersistentPOSTHeaders:[DLUtil defaultHTTPPostHeaders]];
     [self loadUserDefaults];
@@ -198,9 +199,11 @@ static DLController* sharedObject = nil;
     [loadedChannels release];
     [loadedServers release];
     [serverOrder release];
+    [relationships release];
     loadedChannels = [[NSMutableDictionary alloc] init];
     loadedServers = [[NSMutableDictionary alloc] init];
     serverOrder = [[NSMutableArray alloc] init];
+    relationships = [[NSMutableArray alloc] init];
     [myServerItem release];
     myServerItem = nil;
     [myUser release];
@@ -380,6 +383,22 @@ static DLController* sharedObject = nil;
     return sorted;
 }
 
+-(NSArray *)relationshipsForTab:(NSInteger)tab {
+    NSMutableArray *users = [NSMutableArray array];
+    NSEnumerator *e = [relationships objectEnumerator];
+    NSDictionary *relationship;
+    while (relationship = [e nextObject]) {
+        NSInteger type = [[relationship objectForKey:@"type"] integerValue];
+        DLUser *user = [relationship objectForKey:@"user"];
+        if (!user) continue;
+        if ((tab == 0 && type == 1 && [user isOnline]) ||
+            (tab == 1 && type == 1) ||
+            (tab == 2 && (type == 2 || type == 3)) ||
+            (tab == 3 && type == 4)) [users addObject:user];
+    }
+    return users;
+}
+
 -(DLUser *)myUser {
     return myUser;
 }
@@ -524,6 +543,12 @@ static DLController* sharedObject = nil;
             }
         }
     }
+    NSEnumerator *relationshipEnumerator = [relationships objectEnumerator];
+    NSDictionary *relationship;
+    while (relationship = [relationshipEnumerator nextObject]) {
+        DLUser *relationshipUser = [relationship objectForKey:@"user"];
+        if ([[relationshipUser userID] isEqualToString:userID]) [self applyStatus:status activityText:activityText activityDictionary:activityDictionary toUser:relationshipUser];
+    }
 }
 
 -(void)propagatePresenceDictionary:(NSDictionary *)presence inServer:(DLServer *)server {
@@ -531,10 +556,10 @@ static DLController* sharedObject = nil;
     if (!userID) {
         return;
     }
-    DLServerMember *member = [server memberWithUserID:userID];
-    if (member) {
-        [self propagateStatus:[[member user] status] activityText:[[member user] activityText] activityDictionary:[[member user] activityDictionary] forUserID:userID];
-    }
+    NSString *status = [self normalizedUserStatus:[presence objectForKey:@"status"]];
+    NSArray *activities = [presence objectForKey:@"activities"];
+    NSDictionary *activity = ([activities isKindOfClass:[NSArray class]] && [activities count]) ? [activities objectAtIndex:0] : nil;
+    [self propagateStatus:status activityText:[self activityStringFromActivity:activity] activityDictionary:activity forUserID:userID];
 }
 
 -(void)syncPresenceForKnownUsers {
@@ -931,6 +956,22 @@ static DLController* sharedObject = nil;
         if (myUser) {
             [myUser setStatus:currentUserStatus];
         }
+    }
+}
+
+-(void)wsDidReceiveRelationshipData:(NSArray *)data {
+    [relationships removeAllObjects];
+    NSEnumerator *e = [data objectEnumerator];
+    NSDictionary *relationship;
+    while (relationship = [e nextObject]) {
+        NSDictionary *userData = [relationship objectForKey:@"user"];
+        if (![userData isKindOfClass:[NSDictionary class]]) continue;
+        NSMutableDictionary *entry = [relationship mutableCopy];
+        DLUser *user = [[DLUser alloc] initWithDict:userData];
+        [entry setObject:user forKey:@"user"];
+        [relationships addObject:entry];
+        [user release];
+        [entry release];
     }
 }
 
