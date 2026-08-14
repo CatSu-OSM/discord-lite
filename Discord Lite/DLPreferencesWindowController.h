@@ -18,6 +18,7 @@
     IBOutlet NSTextField *SOCKSUsernameTextField;
     IBOutlet NSSecureTextField *SOCKSPasswordTextField;
     IBOutlet NSButton *applyButton;
+    NSPopUpButton *voiceInputPopup;
 }
 - (IBAction)useProxyToggled:(id)sender;
 - (IBAction)useSOCKSPasswordToggled:(id)sender;
