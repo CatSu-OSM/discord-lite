@@ -393,8 +393,8 @@ static DLController* sharedObject = nil;
         if (!user) continue;
         if ((tab == 0 && type == 1 && [user isOnline]) ||
             (tab == 1 && type == 1) ||
-            (tab == 2 && (type == 2 || type == 3)) ||
-            (tab == 3 && type == 4)) [users addObject:user];
+            (tab == 2 && (type == 3 || type == 4)) ||
+            (tab == 3 && type == 2)) [users addObject:user];
     }
     return users;
 }
