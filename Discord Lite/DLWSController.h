@@ -137,6 +137,7 @@ typedef enum {
 -(void)updateWSForChannel:(DLChannel *)c inServer:(DLServer *)s memberRangeStart:(NSInteger)start limit:(NSInteger)limit;
 -(void)joinVoiceChannel:(DLChannel *)c inServer:(DLServer *)s;
 -(void)leaveVoiceChannel;
+-(void)restartVoiceCapture;
 -(void)setVoiceSelfMuted:(BOOL)muted;
 -(void)setVoiceSelfDeafened:(BOOL)deafened;
 -(BOOL)isVoiceSelfMuted;

@@ -828,6 +828,9 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
         return;
     }
     DLVoiceSetStatus(&voiceConnectionStatus, @"Voice media active; waiting for speech…");
+    // Send the SSRC registration before the AudioQueue is allowed to produce
+    // a frame.  A callback-time send can race the first UDP packet.
+    [self sendVoiceSpeaking];
     if (!voiceCapture) {
         voiceCapture = [[DLVoiceCapture alloc] initWithDelegate:self];
         NSError *captureError = nil;
@@ -886,6 +889,15 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
         NSLog(@"Voice RTP send failed.");
         return;
     }
+}
+
+-(void)restartVoiceCapture {
+    if (!voiceCapture) return;
+    [voiceCapture stop];
+    [voiceCapture release];
+    voiceCapture = [[DLVoiceCapture alloc] initWithDelegate:self];
+    NSError *captureError = nil;
+    if (![voiceCapture start:&captureError]) NSLog(@"Voice microphone restart failed: %@", captureError);
 }
 
 -(void)startVoiceUDPReceiveThread {

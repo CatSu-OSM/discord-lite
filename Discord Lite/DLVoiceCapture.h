@@ -15,6 +15,7 @@
 }
 
 -(id)initWithDelegate:(id<DLVoiceCaptureDelegate>)inDelegate;
++(NSArray *)inputDevices;
 -(BOOL)start:(NSError **)error;
 -(void)stop;
 

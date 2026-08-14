@@ -85,6 +85,7 @@ typedef enum {
     NSButton *voiceMuteButton;
     NSButton *voiceDeafenButton;
     NSButton *voiceLeaveButton;
+    NSPopUpButton *voiceInputPopup;
     NSTimer *voiceStatusTimer;
     
     IBOutlet NSView *replyToView;

@@ -5,8 +5,10 @@
 
 #import "DLVoiceCapture.h"
 #import <AudioToolbox/AudioQueue.h>
+#import <CoreAudio/CoreAudio.h>
 
 static NSString * const DLVoiceCaptureErrorDomain = @"DLVoiceCaptureError";
+static NSString * const DLVoiceInputDeviceUIDPreference = @"DLVoiceInputDeviceUID";
 
 static void DLVoiceCaptureCallback(void *userData, AudioQueueRef audioQueue, AudioQueueBufferRef buffer,
                                    const AudioTimeStamp *startTime, UInt32 packetCount, const AudioStreamPacketDescription *packetDescriptions) {
@@ -30,6 +32,44 @@ static void DLVoiceCaptureCallback(void *userData, AudioQueueRef audioQueue, Aud
 }
 
 @implementation DLVoiceCapture
+
++(NSArray *)inputDevices {
+    AudioObjectPropertyAddress address;
+    address.mSelector = kAudioHardwarePropertyDevices;
+    address.mScope = kAudioObjectPropertyScopeGlobal;
+    address.mElement = kAudioObjectPropertyElementMaster;
+    UInt32 size = 0;
+    if (AudioObjectGetPropertyDataSize(kAudioObjectSystemObject, &address, 0, NULL, &size) != noErr || !size) return [NSArray array];
+    NSUInteger count = size / sizeof(AudioDeviceID);
+    AudioDeviceID *devices = malloc(size);
+    if (!devices || AudioObjectGetPropertyData(kAudioObjectSystemObject, &address, 0, NULL, &size, devices) != noErr) {
+        if (devices) free(devices);
+        return [NSArray array];
+    }
+    NSMutableArray *results = [NSMutableArray array];
+    for (NSUInteger index = 0; index < count; index++) {
+        UInt32 streamSize = 0;
+        address.mSelector = kAudioDevicePropertyStreams;
+        address.mScope = kAudioDevicePropertyScopeInput;
+        if (AudioObjectGetPropertyDataSize(devices[index], &address, 0, NULL, &streamSize) != noErr || !streamSize) continue;
+        CFStringRef uid = NULL;
+        CFStringRef name = NULL;
+        UInt32 stringSize = sizeof(uid);
+        address.mSelector = kAudioDevicePropertyDeviceUID;
+        address.mScope = kAudioObjectPropertyScopeGlobal;
+        if (AudioObjectGetPropertyData(devices[index], &address, 0, NULL, &stringSize, &uid) != noErr || !uid) continue;
+        stringSize = sizeof(name);
+        address.mSelector = kAudioObjectPropertyName;
+        AudioObjectGetPropertyData(devices[index], &address, 0, NULL, &stringSize, &name);
+        NSString *deviceUID = [[(NSString *)uid copy] autorelease];
+        NSString *deviceName = name ? [[(NSString *)name copy] autorelease] : deviceUID;
+        CFRelease(uid);
+        if (name) CFRelease(name);
+        [results addObject:[NSDictionary dictionaryWithObjectsAndKeys:deviceName, @"name", deviceUID, @"uid", nil]];
+    }
+    free(devices);
+    return results;
+}
 
 -(id)initWithDelegate:(id<DLVoiceCaptureDelegate>)inDelegate {
     self = [super init];
@@ -63,6 +103,13 @@ static void DLVoiceCaptureCallback(void *userData, AudioQueueRef audioQueue, Aud
         return NO;
     }
     queue = audioQueue;
+    NSString *deviceUID = [[NSUserDefaults standardUserDefaults] stringForKey:DLVoiceInputDeviceUIDPreference];
+    if ([deviceUID length]) {
+        CFStringRef selectedDevice = (CFStringRef)deviceUID;
+        if (AudioQueueSetProperty(audioQueue, kAudioQueueProperty_CurrentDevice, &selectedDevice, sizeof(selectedDevice)) != noErr) {
+            NSLog(@"Voice input device is unavailable; using the system default.");
+        }
+    }
     for (int index = 0; index < 3; index++) {
         AudioQueueBufferRef buffer = NULL;
         if (AudioQueueAllocateBuffer(audioQueue, 3840, &buffer) != noErr) {

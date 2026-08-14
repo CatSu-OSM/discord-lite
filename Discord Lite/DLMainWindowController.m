@@ -1097,6 +1097,7 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
     CGFloat voiceHeight = NSHeight([voicePanelView frame]);
     [voiceTitleTextField setFrame:NSMakeRect(28.0f, voiceHeight - 76.0f, chatWidth - 56.0f, 26.0f)];
     [voiceStatusTextField setFrame:NSMakeRect(28.0f, voiceHeight - 102.0f, chatWidth - 56.0f, 20.0f)];
+    [voiceInputPopup setFrame:NSMakeRect(28.0f, voiceHeight - 138.0f, chatWidth - 56.0f, 26.0f)];
     CGFloat controlsWidth = 340.0f;
     CGFloat controlsX = MAX(28.0f, (chatWidth - controlsWidth) / 2.0f);
     [voiceMuteButton setFrame:NSMakeRect(controlsX, 42.0f, 108.0f, 34.0f)];
@@ -1188,6 +1189,10 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
         [voicePanelView addSubview:voiceTitleTextField];
         voiceStatusTextField = DLLabel(NSMakeRect(28, 0, 350, 20), @"Connecting…", [NSFont systemFontOfSize:13], [NSColor lightGrayColor]);
         [voicePanelView addSubview:voiceStatusTextField];
+        voiceInputPopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(28, 0, 340, 26) pullsDown:NO];
+        [voiceInputPopup setTarget:self];
+        [voiceInputPopup setAction:@selector(voiceInputWasSelected:)];
+        [voicePanelView addSubview:voiceInputPopup];
         voiceMuteButton = [[NSButton alloc] initWithFrame:NSMakeRect(28, 0, 108, 34)];
         [voiceMuteButton setTitle:@"Mute mic"];
         [voiceMuteButton setBezelStyle:NSRoundedBezelStyle];
@@ -1209,6 +1214,7 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
         [voiceMuteButton release];
         [voiceDeafenButton release];
         [voiceLeaveButton release];
+        [voiceInputPopup release];
         [voicePanelView setHidden:YES];
         [contentView addSubview:voicePanelView];
 
@@ -1428,11 +1434,30 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
 -(void)showVoicePanelForChannel:(DLChannel *)channel {
     [voiceTitleTextField setStringValue:[NSString stringWithFormat:@"🔊 %@", [channel name]]];
     [voicePanelView setHidden:NO];
+    [self reloadVoiceInputDevices];
     [chatScrollView setHidden:YES];
     [messageEntryContainerView setHidden:YES];
     [voiceStatusTimer invalidate];
     voiceStatusTimer = [NSTimer scheduledTimerWithTimeInterval:1.0 target:self selector:@selector(updateVoiceStatus:) userInfo:nil repeats:YES];
     [self updateVoiceStatus:nil];
+}
+
+-(void)reloadVoiceInputDevices {
+    NSString *selectedUID = [[NSUserDefaults standardUserDefaults] stringForKey:@"DLVoiceInputDeviceUID"];
+    [voiceInputPopup removeAllItems];
+    [voiceInputPopup addItemWithTitle:@"Microphone: System Default"];
+    for (NSDictionary *device in [DLVoiceCapture inputDevices]) {
+        [voiceInputPopup addItemWithTitle:[NSString stringWithFormat:@"Microphone: %@", [device objectForKey:@"name"]]];
+        [[voiceInputPopup lastItem] setRepresentedObject:[device objectForKey:@"uid"]];
+        if ([[device objectForKey:@"uid"] isEqualToString:selectedUID]) [voiceInputPopup selectItem:[voiceInputPopup lastItem]];
+    }
+}
+
+-(IBAction)voiceInputWasSelected:(id)sender {
+    NSString *deviceUID = [[voiceInputPopup selectedItem] representedObject];
+    if ([deviceUID length]) [[NSUserDefaults standardUserDefaults] setObject:deviceUID forKey:@"DLVoiceInputDeviceUID"];
+    else [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"DLVoiceInputDeviceUID"];
+    [[DLWSController sharedInstance] restartVoiceCapture];
 }
 
 -(void)updateVoiceStatus:(NSTimer *)timer {
