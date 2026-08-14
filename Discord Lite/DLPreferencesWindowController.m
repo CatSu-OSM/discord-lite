@@ -8,6 +8,8 @@
 
 #import "DLPreferencesWindowController.h"
 #import "DLController.h"
+#import "DLVoiceCapture.h"
+#import "DLWSController.h"
 
 static NSTextField *DLPreferencesLabel(NSString *title, NSRect frame, NSFont *font) {
     NSTextField *label = [[NSTextField alloc] initWithFrame:frame];
@@ -27,7 +29,7 @@ static NSTextField *DLPreferencesLabel(NSString *title, NSRect frame, NSFont *fo
 @implementation DLPreferencesWindowController
 
 - (id)init {
-    NSWindow *preferencesWindow = [[NSWindow alloc] initWithContentRect:NSMakeRect(196.0f, 240.0f, 620.0f, 274.0f)
+    NSWindow *preferencesWindow = [[NSWindow alloc] initWithContentRect:NSMakeRect(196.0f, 240.0f, 620.0f, 316.0f)
                                                                styleMask:NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask
                                                                  backing:NSBackingStoreBuffered
                                                                    defer:NO];
@@ -40,23 +42,24 @@ static NSTextField *DLPreferencesLabel(NSString *title, NSRect frame, NSFont *fo
     [[self window] setTitle:@"Settings"];
     NSView *contentView = [[self window] contentView];
 
-    [contentView addSubview:DLPreferencesLabel(@"Settings", NSMakeRect(16.0f, 237.0f, 120.0f, 17.0f), [NSFont boldSystemFontOfSize:[NSFont systemFontSize]])];
-    [contentView addSubview:DLPreferencesLabel(@"Connection", NSMakeRect(16.0f, 209.0f, 120.0f, 17.0f), [NSFont systemFontOfSize:[NSFont systemFontSize]])];
+    [contentView addSubview:DLPreferencesLabel(@"Settings", NSMakeRect(16.0f, 279.0f, 120.0f, 17.0f), [NSFont boldSystemFontOfSize:[NSFont systemFontSize]])];
+    [contentView addSubview:DLPreferencesLabel(@"Connection", NSMakeRect(16.0f, 251.0f, 120.0f, 17.0f), [NSFont systemFontOfSize:[NSFont systemFontSize]])];
+    [contentView addSubview:DLPreferencesLabel(@"Voice", NSMakeRect(16.0f, 223.0f, 120.0f, 17.0f), [NSFont systemFontOfSize:[NSFont systemFontSize]])];
 
-    NSBox *divider = [[NSBox alloc] initWithFrame:NSMakeRect(158.0f, 0.0f, 1.0f, 274.0f)];
+    NSBox *divider = [[NSBox alloc] initWithFrame:NSMakeRect(158.0f, 0.0f, 1.0f, 316.0f)];
     [divider setTitlePosition:NSNoTitle];
     [divider setBorderType:NSLineBorder];
     [contentView addSubview:divider];
     [divider release];
 
-    useSOCKSCheckbox = [[NSButton alloc] initWithFrame:NSMakeRect(182.0f, 238.0f, 400.0f, 18.0f)];
+    useSOCKSCheckbox = [[NSButton alloc] initWithFrame:NSMakeRect(182.0f, 280.0f, 400.0f, 18.0f)];
     [useSOCKSCheckbox setButtonType:NSSwitchButton];
     [useSOCKSCheckbox setTitle:@"Use SOCKS Proxy Server for WebSocket"];
     [useSOCKSCheckbox setTarget:self];
     [useSOCKSCheckbox setAction:@selector(useProxyToggled:)];
     [contentView addSubview:useSOCKSCheckbox];
 
-    NSBox *proxyBox = [[NSBox alloc] initWithFrame:NSMakeRect(181.0f, 70.0f, 401.0f, 164.0f)];
+    NSBox *proxyBox = [[NSBox alloc] initWithFrame:NSMakeRect(181.0f, 112.0f, 401.0f, 164.0f)];
     [proxyBox setTitlePosition:NSNoTitle];
     [proxyBox setBorderType:NSLineBorder];
     [contentView addSubview:proxyBox];
@@ -80,6 +83,10 @@ static NSTextField *DLPreferencesLabel(NSString *title, NSRect frame, NSFont *fo
     SOCKSPasswordTextField = [[NSSecureTextField alloc] initWithFrame:NSMakeRect(93.0f, 14.0f, 208.0f, 22.0f)];
     [proxyView addSubview:SOCKSPasswordTextField];
     [proxyBox release];
+
+    [contentView addSubview:DLPreferencesLabel(@"Microphone", NSMakeRect(182.0f, 80.0f, 82.0f, 17.0f), [NSFont systemFontOfSize:[NSFont systemFontSize]])];
+    voiceInputPopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(271.0f, 75.0f, 311.0f, 26.0f) pullsDown:NO];
+    [contentView addSubview:voiceInputPopup];
 
     applyButton = [[NSButton alloc] initWithFrame:NSMakeRect(506.0f, 13.0f, 76.0f, 32.0f)];
     [applyButton setTitle:@"Apply"];
@@ -125,6 +132,14 @@ static NSTextField *DLPreferencesLabel(NSString *title, NSRect frame, NSFont *fo
     }
     if ([[DLPreferencesHandler sharedInstance] SOCKSProxyPassword]) {
         [SOCKSPasswordTextField setStringValue:[[DLPreferencesHandler sharedInstance] SOCKSProxyPassword]];
+    }
+    NSString *selectedUID = [[NSUserDefaults standardUserDefaults] stringForKey:@"DLVoiceInputDeviceUID"];
+    [voiceInputPopup removeAllItems];
+    [voiceInputPopup addItemWithTitle:@"System Default"];
+    for (NSDictionary *device in [DLVoiceCapture inputDevices]) {
+        [voiceInputPopup addItemWithTitle:[device objectForKey:@"name"]];
+        [[voiceInputPopup lastItem] setRepresentedObject:[device objectForKey:@"uid"]];
+        if ([[device objectForKey:@"uid"] isEqualToString:selectedUID]) [voiceInputPopup selectItem:[voiceInputPopup lastItem]];
     }
 }
 
@@ -173,6 +188,10 @@ static NSTextField *DLPreferencesLabel(NSString *title, NSRect frame, NSFont *fo
     [[DLPreferencesHandler sharedInstance] setSOCKSProxyPort:[[portTextField stringValue] intValue]];
     [[DLPreferencesHandler sharedInstance] setSOCKSProxyUsername:[SOCKSUsernameTextField stringValue]];
     [[DLPreferencesHandler sharedInstance] setSOCKSProxyPassword:[SOCKSPasswordTextField stringValue]];
+    NSString *voiceDeviceUID = [[voiceInputPopup selectedItem] representedObject];
+    if ([voiceDeviceUID length]) [[NSUserDefaults standardUserDefaults] setObject:voiceDeviceUID forKey:@"DLVoiceInputDeviceUID"];
+    else [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"DLVoiceInputDeviceUID"];
+    [[DLWSController sharedInstance] restartVoiceCapture];
     
     [self.window close];
     
@@ -191,6 +210,7 @@ static NSTextField *DLPreferencesLabel(NSString *title, NSRect frame, NSFont *fo
     [SOCKSUsernameTextField release];
     [SOCKSPasswordTextField release];
     [applyButton release];
+    [voiceInputPopup release];
     [super dealloc];
 }
 @end

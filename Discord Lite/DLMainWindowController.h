@@ -82,10 +82,19 @@ typedef enum {
     NSView_BGColor *voicePanelView;
     NSTextField *voiceTitleTextField;
     NSTextField *voiceStatusTextField;
+    NSView_BGColor *voiceToolbarView;
     NSButton *voiceMuteButton;
+    NSButton *voiceMuteMenuButton;
     NSButton *voiceDeafenButton;
+    NSButton *voiceDeafenMenuButton;
+    NSButton *voiceScreenShareButton;
+    NSButton *voiceInviteButton;
+    NSButton *voiceActivityButton;
+    NSButton *voiceNoiseSuppressionButton;
+    NSButton *voiceMoreButton;
     NSButton *voiceLeaveButton;
-    NSPopUpButton *voiceInputPopup;
+    NSButton *voicePopoutButton;
+    NSButton *voiceFullscreenButton;
     NSTimer *voiceStatusTimer;
     
     IBOutlet NSView *replyToView;
@@ -128,6 +137,12 @@ typedef enum {
     
     id<DLMainWindowDelegate> delegate;
     BOOL hasConfiguredWindow;
+    NSView *startupView;
+    NSWindow *startupWindow;
+    DLWhiteSpinner *startupSpinner;
+    NSTextField *startupStatusLabel;
+    NSMutableSet *startupPendingAvatarUserIDs;
+    BOOL startupInitialDataReceived;
 }
 - (IBAction)showFileOpenDialog:(id)sender;
 - (IBAction)showPreferencesWindow:(id)sender;

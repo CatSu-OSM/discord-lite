@@ -70,6 +70,97 @@
 }
 @end
 
+@interface DLLinenStartupView : NSView
+@end
+
+@implementation DLLinenStartupView
+
+-(BOOL)isFlipped { return YES; }
+
+-(void)drawRect:(NSRect)dirtyRect {
+    NSRect bounds = [self bounds];
+    [[NSColor colorWithCalibratedRed:0.25f green:0.26f blue:0.29f alpha:1.0f] set];
+    NSRectFill(bounds);
+    NSInteger x;
+    for (x = 0; x < NSWidth(bounds); x += 4) {
+        [[NSColor colorWithCalibratedWhite:1.0f alpha:0.025f] set]; NSRectFill(NSMakeRect(x, 0, 1, NSHeight(bounds)));
+        [[NSColor colorWithCalibratedWhite:0.0f alpha:0.035f] set]; NSRectFill(NSMakeRect(x + 2, 0, 1, NSHeight(bounds)));
+    }
+    NSInteger y;
+    for (y = 0; y < NSHeight(bounds); y += 4) {
+        [[NSColor colorWithCalibratedWhite:1.0f alpha:0.022f] set]; NSRectFill(NSMakeRect(0, y, NSWidth(bounds), 1));
+        [[NSColor colorWithCalibratedWhite:0.0f alpha:0.032f] set]; NSRectFill(NSMakeRect(0, y + 2, NSWidth(bounds), 1));
+    }
+}
+@end
+
+@interface DLVoiceToolbarButton : NSButton {
+    BOOL dangerButton;
+    NSInteger segmentPosition;
+}
+-(void)setDangerButton:(BOOL)isDanger;
+-(void)setSegmentPosition:(NSInteger)position;
+@end
+
+@implementation DLVoiceToolbarButton
+
+static NSBezierPath *DLVoiceToolbarButtonPath(NSRect rect, CGFloat radius, NSInteger position) {
+    if (position == 0) return [NSBezierPath bezierPathWithRoundedRect:rect xRadius:radius yRadius:radius];
+    NSBezierPath *path = [NSBezierPath bezierPath];
+    CGFloat left = NSMinX(rect); CGFloat right = NSMaxX(rect); CGFloat bottom = NSMinY(rect); CGFloat top = NSMaxY(rect);
+    if (position == 1) {
+        [path moveToPoint:NSMakePoint(left + radius, bottom)]; [path lineToPoint:NSMakePoint(right, bottom)]; [path lineToPoint:NSMakePoint(right, top)]; [path lineToPoint:NSMakePoint(left + radius, top)];
+        [path appendBezierPathWithArcFromPoint:NSMakePoint(left, top) toPoint:NSMakePoint(left, top - radius) radius:radius]; [path lineToPoint:NSMakePoint(left, bottom + radius)]; [path appendBezierPathWithArcFromPoint:NSMakePoint(left, bottom) toPoint:NSMakePoint(left + radius, bottom) radius:radius];
+    } else {
+        [path moveToPoint:NSMakePoint(left, bottom)]; [path lineToPoint:NSMakePoint(right - radius, bottom)]; [path appendBezierPathWithArcFromPoint:NSMakePoint(right, bottom) toPoint:NSMakePoint(right, bottom + radius) radius:radius]; [path lineToPoint:NSMakePoint(right, top - radius)]; [path appendBezierPathWithArcFromPoint:NSMakePoint(right, top) toPoint:NSMakePoint(right - radius, top) radius:radius]; [path lineToPoint:NSMakePoint(left, top)];
+    }
+    [path closePath];
+    return path;
+}
+
+-(void)setDangerButton:(BOOL)isDanger {
+    dangerButton = isDanger;
+    [self setNeedsDisplay:YES];
+}
+
+-(void)setSegmentPosition:(NSInteger)position { segmentPosition = position; [self setNeedsDisplay:YES]; }
+
+-(void)drawRect:(NSRect)dirtyRect {
+    BOOL pressed = [[self cell] isHighlighted];
+    NSRect outerBounds = NSInsetRect([self bounds], 0.5f, 0.5f);
+    NSBezierPath *outer = DLVoiceToolbarButtonPath(outerBounds, 5.0f, segmentPosition);
+    [[NSColor colorWithCalibratedWhite:0.0f alpha:0.82f] set];
+    [outer fill];
+
+    NSRect innerBounds = NSInsetRect(outerBounds, 1.0f, 1.0f);
+    if (pressed) innerBounds.origin.y -= 1.0f;
+    NSBezierPath *inner = DLVoiceToolbarButtonPath(innerBounds, 4.0f, segmentPosition);
+    NSColor *topColor;
+    NSColor *bottomColor;
+    if (dangerButton) {
+        topColor = pressed ? [NSColor colorWithCalibratedRed:122.0f/255.0f green:24.0f/255.0f blue:30.0f/255.0f alpha:1.0f] : [NSColor colorWithCalibratedRed:202.0f/255.0f green:58.0f/255.0f blue:64.0f/255.0f alpha:1.0f];
+        bottomColor = pressed ? [NSColor colorWithCalibratedRed:74.0f/255.0f green:12.0f/255.0f blue:17.0f/255.0f alpha:1.0f] : [NSColor colorWithCalibratedRed:134.0f/255.0f green:25.0f/255.0f blue:31.0f/255.0f alpha:1.0f];
+    } else {
+        topColor = pressed ? [NSColor colorWithCalibratedRed:43.0f/255.0f green:45.0f/255.0f blue:50.0f/255.0f alpha:1.0f] : [NSColor colorWithCalibratedRed:93.0f/255.0f green:96.0f/255.0f blue:103.0f/255.0f alpha:1.0f];
+        bottomColor = pressed ? [NSColor colorWithCalibratedRed:24.0f/255.0f green:25.0f/255.0f blue:29.0f/255.0f alpha:1.0f] : [NSColor colorWithCalibratedRed:42.0f/255.0f green:44.0f/255.0f blue:49.0f/255.0f alpha:1.0f];
+    }
+    NSGradient *bevel = [[NSGradient alloc] initWithStartingColor:topColor endingColor:bottomColor];
+    [bevel drawInBezierPath:inner angle:90.0f];
+    [bevel release];
+
+    [[NSColor colorWithCalibratedWhite:1.0f alpha:(pressed ? 0.08f : 0.32f)] set];
+    NSBezierPath *highlight = [NSBezierPath bezierPath];
+    [highlight setLineWidth:1.0f];
+    [highlight moveToPoint:NSMakePoint(NSMinX(innerBounds) + 4.0f, NSMaxY(innerBounds) - 0.5f)];
+    [highlight lineToPoint:NSMakePoint(NSMaxX(innerBounds) - 4.0f, NSMaxY(innerBounds) - 0.5f)];
+    [highlight stroke];
+    [[NSColor colorWithCalibratedWhite:0.0f alpha:0.48f] set];
+    [outer setLineWidth:1.0f];
+    [outer stroke];
+    [super drawRect:dirtyRect];
+}
+@end
+
 @interface DLThreadPickerButton : NSButton {
     DLServerChannel *thread;
 }
@@ -1059,6 +1150,81 @@ static NSTextField *DLLabel(NSRect frame, NSString *text, NSFont *font, NSColor 
     return label;
 }
 
+typedef enum {
+    DLVoiceIconInvite = 0,
+    DLVoiceIconMicrophone,
+    DLVoiceIconChevron,
+    DLVoiceIconMutedMicrophone,
+    DLVoiceIconHeadphones,
+    DLVoiceIconDeafenedHeadphones,
+    DLVoiceIconScreenShare,
+    DLVoiceIconActivities,
+    DLVoiceIconNoiseSuppression,
+    DLVoiceIconMore,
+    DLVoiceIconLeave,
+    DLVoiceIconPopout,
+    DLVoiceIconFullscreen
+} DLVoiceToolbarIcon;
+
+static NSImage *DLVoiceToolbarImage(DLVoiceToolbarIcon icon) {
+    NSImage *image = [[[NSImage alloc] initWithSize:NSMakeSize(18.0f, 18.0f)] autorelease];
+    [image lockFocus];
+    [[NSColor colorWithCalibratedWhite:0.88f alpha:1.0f] set];
+    NSBezierPath *path = [NSBezierPath bezierPath];
+    [path setLineWidth:1.8f];
+    if (icon == DLVoiceIconChevron) {
+        [path moveToPoint:NSMakePoint(5.0f, 11.0f)]; [path lineToPoint:NSMakePoint(9.0f, 7.0f)]; [path lineToPoint:NSMakePoint(13.0f, 11.0f)]; [path closePath]; [path fill];
+    } else if (icon == DLVoiceIconMicrophone || icon == DLVoiceIconMutedMicrophone) {
+        [path appendBezierPathWithRoundedRect:NSMakeRect(6.0f, 6.0f, 6.0f, 8.0f) xRadius:3.0f yRadius:3.0f];
+        [path stroke];
+        path = [NSBezierPath bezierPath]; [path setLineWidth:1.8f];
+        [path appendBezierPathWithArcWithCenter:NSMakePoint(9.0f, 9.0f) radius:5.0f startAngle:200.0f endAngle:340.0f clockwise:NO];
+        [path moveToPoint:NSMakePoint(9.0f, 4.0f)]; [path lineToPoint:NSMakePoint(9.0f, 1.5f)]; [path stroke];
+    } else if (icon == DLVoiceIconHeadphones || icon == DLVoiceIconDeafenedHeadphones) {
+        [path appendBezierPathWithArcWithCenter:NSMakePoint(9.0f, 8.0f) radius:6.0f startAngle:25.0f endAngle:155.0f clockwise:NO];
+        [path stroke];
+        [[NSBezierPath bezierPathWithRect:NSMakeRect(2.0f, 5.0f, 3.0f, 5.0f)] fill];
+        [[NSBezierPath bezierPathWithRect:NSMakeRect(13.0f, 5.0f, 3.0f, 5.0f)] fill];
+    } else if (icon == DLVoiceIconScreenShare) {
+        [path appendBezierPathWithRoundedRect:NSMakeRect(2.0f, 4.0f, 14.0f, 10.0f) xRadius:1.5f yRadius:1.5f]; [path stroke];
+        [path moveToPoint:NSMakePoint(9.0f, 3.0f)]; [path lineToPoint:NSMakePoint(9.0f, 11.0f)];
+        [path moveToPoint:NSMakePoint(6.5f, 8.5f)]; [path lineToPoint:NSMakePoint(9.0f, 11.0f)]; [path lineToPoint:NSMakePoint(11.5f, 8.5f)]; [path stroke];
+    } else if (icon == DLVoiceIconInvite) {
+        [[NSBezierPath bezierPathWithOvalInRect:NSMakeRect(6.5f, 10.5f, 4.5f, 4.5f)] fill];
+        [path appendBezierPathWithArcWithCenter:NSMakePoint(8.75f, 7.5f) radius:4.5f startAngle:25.0f endAngle:155.0f clockwise:NO]; [path stroke];
+        [path moveToPoint:NSMakePoint(14.0f, 5.0f)]; [path lineToPoint:NSMakePoint(14.0f, 11.0f)]; [path moveToPoint:NSMakePoint(11.0f, 8.0f)]; [path lineToPoint:NSMakePoint(17.0f, 8.0f)]; [path stroke];
+    } else if (icon == DLVoiceIconActivities) {
+        NSInteger x; NSInteger y;
+        for (x = 0; x < 2; x++) for (y = 0; y < 2; y++) [[NSBezierPath bezierPathWithOvalInRect:NSMakeRect(3.0f + (x * 7.0f), 3.0f + (y * 7.0f), 4.5f, 4.5f)] fill];
+    } else if (icon == DLVoiceIconNoiseSuppression) {
+        [path appendBezierPathWithArcWithCenter:NSMakePoint(8.0f, 9.0f) radius:3.0f startAngle:-70.0f endAngle:70.0f clockwise:NO];
+        [path appendBezierPathWithArcWithCenter:NSMakePoint(8.0f, 9.0f) radius:6.0f startAngle:-55.0f endAngle:55.0f clockwise:NO]; [path stroke];
+        [[NSBezierPath bezierPathWithOvalInRect:NSMakeRect(5.8f, 6.8f, 4.4f, 4.4f)] fill];
+    } else if (icon == DLVoiceIconMore) {
+        NSInteger index; for (index = 0; index < 3; index++) [[NSBezierPath bezierPathWithOvalInRect:NSMakeRect(3.0f + (index * 5.5f), 7.0f, 3.0f, 3.0f)] fill];
+    } else if (icon == DLVoiceIconLeave) {
+        [path setLineWidth:3.4f]; [path moveToPoint:NSMakePoint(4.0f, 6.0f)]; [path curveToPoint:NSMakePoint(14.0f, 6.0f) controlPoint1:NSMakePoint(6.0f, 10.0f) controlPoint2:NSMakePoint(12.0f, 10.0f)]; [path stroke];
+    } else if (icon == DLVoiceIconPopout) {
+        [path appendBezierPathWithRect:NSMakeRect(3.0f, 3.0f, 11.0f, 11.0f)]; [path moveToPoint:NSMakePoint(9.0f, 9.0f)]; [path lineToPoint:NSMakePoint(15.5f, 15.5f)]; [path moveToPoint:NSMakePoint(11.0f, 15.5f)]; [path lineToPoint:NSMakePoint(15.5f, 15.5f)]; [path lineToPoint:NSMakePoint(15.5f, 11.0f)]; [path stroke];
+    } else if (icon == DLVoiceIconFullscreen) {
+        [path moveToPoint:NSMakePoint(2.0f, 7.0f)]; [path lineToPoint:NSMakePoint(2.0f, 2.0f)]; [path lineToPoint:NSMakePoint(7.0f, 2.0f)]; [path moveToPoint:NSMakePoint(11.0f, 2.0f)]; [path lineToPoint:NSMakePoint(16.0f, 2.0f)]; [path lineToPoint:NSMakePoint(16.0f, 7.0f)]; [path moveToPoint:NSMakePoint(16.0f, 11.0f)]; [path lineToPoint:NSMakePoint(16.0f, 16.0f)]; [path lineToPoint:NSMakePoint(11.0f, 16.0f)]; [path moveToPoint:NSMakePoint(7.0f, 16.0f)]; [path lineToPoint:NSMakePoint(2.0f, 16.0f)]; [path lineToPoint:NSMakePoint(2.0f, 11.0f)]; [path stroke];
+    }
+    if (icon == DLVoiceIconMutedMicrophone || icon == DLVoiceIconDeafenedHeadphones) {
+        [[NSColor colorWithCalibratedRed:0.92f green:0.31f blue:0.31f alpha:1.0f] set];
+        NSBezierPath *slash = [NSBezierPath bezierPath]; [slash setLineWidth:2.0f]; [slash moveToPoint:NSMakePoint(2.0f, 2.0f)]; [slash lineToPoint:NSMakePoint(16.0f, 16.0f)]; [slash stroke];
+    }
+    [image unlockFocus];
+    return image;
+}
+
+static void DLConfigureVoiceToolbarButton(NSButton *button, DLVoiceToolbarIcon icon, NSString *toolTip) {
+    [button setTitle:@""];
+    [button setImage:DLVoiceToolbarImage(icon)];
+    [button setImagePosition:NSImageOnly];
+    [button setBordered:NO];
+    [button setToolTip:toolTip];
+}
+
 static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView, NSColor *color, NSScroller_BGColor **scroller) {
     FlippedClipView *clipView = [[FlippedClipView alloc] initWithFrame:[scrollView bounds]];
     [clipView setDrawsBackground:YES];
@@ -1095,14 +1261,44 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
     [chatScrollView setFrame:NSMakeRect(338.0f, entryHeight, chatWidth, contentHeight - 42.0f - entryHeight)];
     [voicePanelView setFrame:[chatScrollView frame]];
     CGFloat voiceHeight = NSHeight([voicePanelView frame]);
+    [voiceToolbarView setFrame:NSMakeRect(0.0f, 0.0f, chatWidth, 82.0f)];
     [voiceTitleTextField setFrame:NSMakeRect(28.0f, voiceHeight - 76.0f, chatWidth - 56.0f, 26.0f)];
     [voiceStatusTextField setFrame:NSMakeRect(28.0f, voiceHeight - 102.0f, chatWidth - 56.0f, 20.0f)];
-    [voiceInputPopup setFrame:NSMakeRect(28.0f, voiceHeight - 138.0f, chatWidth - 56.0f, 26.0f)];
-    CGFloat controlsWidth = 340.0f;
-    CGFloat controlsX = MAX(28.0f, (chatWidth - controlsWidth) / 2.0f);
-    [voiceMuteButton setFrame:NSMakeRect(controlsX, 42.0f, 108.0f, 34.0f)];
-    [voiceDeafenButton setFrame:NSMakeRect(controlsX + 116.0f, 42.0f, 108.0f, 34.0f)];
-    [voiceLeaveButton setFrame:NSMakeRect(controlsX + 232.0f, 42.0f, 108.0f, 34.0f)];
+    // Keep the entire call bar in the right pane, matching the compact
+    // icon-only control strip used by Discord's classic voice UI.
+    CGFloat buttonY = 18.0f;
+    CGFloat buttonSize = 38.0f;
+    CGFloat smallButtonWidth = 53.0f;
+    CGFloat chevronWidth = 21.0f;
+    CGFloat gap = 4.0f;
+    CGFloat rightX = chatWidth - 18.0f - buttonSize;
+    [voiceFullscreenButton setFrame:NSMakeRect(rightX, buttonY, buttonSize, 34.0f)];
+    rightX -= buttonSize + gap;
+    [voicePopoutButton setFrame:NSMakeRect(rightX, buttonY, buttonSize, 34.0f)];
+    BOOL fullCallBar = chatWidth >= 590.0f;
+    [voiceInviteButton setHidden:!fullCallBar];
+    [voiceActivityButton setHidden:!fullCallBar];
+    [voiceNoiseSuppressionButton setHidden:!fullCallBar];
+    [voiceMoreButton setHidden:!fullCallBar];
+    if (fullCallBar) [voiceInviteButton setFrame:NSMakeRect(18.0f, buttonY, buttonSize, 34.0f)];
+    CGFloat centerWidth = fullCallBar ? 426.0f : 246.0f;
+    CGFloat controlX = MAX(18.0f, (chatWidth - centerWidth) / 2.0f);
+    [voiceMuteButton setFrame:NSMakeRect(controlX, buttonY, buttonSize, 34.0f)];
+    controlX += buttonSize;
+    [voiceMuteMenuButton setFrame:NSMakeRect(controlX, buttonY, chevronWidth, 34.0f)];
+    controlX += chevronWidth + gap;
+    [voiceDeafenButton setFrame:NSMakeRect(controlX, buttonY, buttonSize, 34.0f)];
+    controlX += buttonSize;
+    [voiceDeafenMenuButton setFrame:NSMakeRect(controlX, buttonY, chevronWidth, 34.0f)];
+    controlX += chevronWidth + gap;
+    [voiceScreenShareButton setFrame:NSMakeRect(controlX, buttonY, smallButtonWidth, 34.0f)];
+    controlX += smallButtonWidth + gap;
+    if (fullCallBar) {
+        [voiceActivityButton setFrame:NSMakeRect(controlX, buttonY, smallButtonWidth, 34.0f)]; controlX += smallButtonWidth + gap;
+        [voiceNoiseSuppressionButton setFrame:NSMakeRect(controlX, buttonY, smallButtonWidth, 34.0f)]; controlX += smallButtonWidth + gap;
+        [voiceMoreButton setFrame:NSMakeRect(controlX, buttonY, smallButtonWidth, 34.0f)]; controlX += smallButtonWidth + 18.0f;
+    }
+    [voiceLeaveButton setFrame:NSMakeRect(controlX, buttonY - 2.0f, 58.0f, 38.0f)];
 
     NSRect entryFrame = [messageEntryScrollView frame];
     entryFrame.size.width = chatWidth - 58.0f;
@@ -1185,36 +1381,109 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
 
         voicePanelView = [[NSView_BGColor alloc] initWithFrame:[chatScrollView frame]];
         [voicePanelView setBackgroundColor:[NSColor colorWithCalibratedRed:37.0/255.0 green:38.0/255.0 blue:42.0/255.0 alpha:1.0]];
+        voiceToolbarView = [[NSView_BGColor alloc] initWithFrame:NSMakeRect(0.0f, 0.0f, 409.0f, 82.0f)];
+        [voiceToolbarView setBackgroundColor:[NSColor colorWithCalibratedRed:27.0f/255.0f green:28.0f/255.0f blue:32.0f/255.0f alpha:1.0f]];
+        [voicePanelView addSubview:voiceToolbarView];
         voiceTitleTextField = DLLabel(NSMakeRect(28, 0, 340, 26), @"Voice channel", [NSFont boldSystemFontOfSize:22], [NSColor whiteColor]);
         [voicePanelView addSubview:voiceTitleTextField];
         voiceStatusTextField = DLLabel(NSMakeRect(28, 0, 350, 20), @"Connecting…", [NSFont systemFontOfSize:13], [NSColor lightGrayColor]);
         [voicePanelView addSubview:voiceStatusTextField];
-        voiceInputPopup = [[NSPopUpButton alloc] initWithFrame:NSMakeRect(28, 0, 340, 26) pullsDown:NO];
-        [voiceInputPopup setTarget:self];
-        [voiceInputPopup setAction:@selector(voiceInputWasSelected:)];
-        [voicePanelView addSubview:voiceInputPopup];
-        voiceMuteButton = [[NSButton alloc] initWithFrame:NSMakeRect(28, 0, 108, 34)];
-        [voiceMuteButton setTitle:@"Mute mic"];
+        voiceMuteButton = [[DLVoiceToolbarButton alloc] initWithFrame:NSMakeRect(28, 0, 38, 34)];
+        [voiceMuteButton setTitle:@"Mic"];
         [voiceMuteButton setBezelStyle:NSRoundedBezelStyle];
+        DLConfigureVoiceToolbarButton(voiceMuteButton, DLVoiceIconMicrophone, @"Mute microphone");
+        [(DLVoiceToolbarButton *)voiceMuteButton setSegmentPosition:1];
         [voiceMuteButton setTarget:self];
         [voiceMuteButton setAction:@selector(toggleVoiceMute:)];
-        [voicePanelView addSubview:voiceMuteButton];
-        voiceDeafenButton = [[NSButton alloc] initWithFrame:NSMakeRect(144, 0, 108, 34)];
-        [voiceDeafenButton setTitle:@"Deafen"];
+        [voiceToolbarView addSubview:voiceMuteButton];
+        voiceMuteMenuButton = [[DLVoiceToolbarButton alloc] initWithFrame:NSMakeRect(66, 0, 21, 34)];
+        DLConfigureVoiceToolbarButton(voiceMuteMenuButton, DLVoiceIconChevron, @"Configure microphone in Settings");
+        [(DLVoiceToolbarButton *)voiceMuteMenuButton setSegmentPosition:2];
+        [voiceMuteMenuButton setTarget:self];
+        [voiceMuteMenuButton setAction:@selector(showPreferencesWindow:)];
+        [voiceToolbarView addSubview:voiceMuteMenuButton];
+        voiceDeafenButton = [[DLVoiceToolbarButton alloc] initWithFrame:NSMakeRect(70, 0, 38, 34)];
+        [voiceDeafenButton setTitle:@"Sound"];
         [voiceDeafenButton setBezelStyle:NSRoundedBezelStyle];
+        DLConfigureVoiceToolbarButton(voiceDeafenButton, DLVoiceIconHeadphones, @"Deafen");
+        [(DLVoiceToolbarButton *)voiceDeafenButton setSegmentPosition:1];
         [voiceDeafenButton setTarget:self];
         [voiceDeafenButton setAction:@selector(toggleVoiceDeafen:)];
-        [voicePanelView addSubview:voiceDeafenButton];
-        voiceLeaveButton = [[NSButton alloc] initWithFrame:NSMakeRect(260, 0, 108, 34)];
-        [voiceLeaveButton setTitle:@"Leave voice"];
+        [voiceToolbarView addSubview:voiceDeafenButton];
+        voiceDeafenMenuButton = [[DLVoiceToolbarButton alloc] initWithFrame:NSMakeRect(108, 0, 21, 34)];
+        DLConfigureVoiceToolbarButton(voiceDeafenMenuButton, DLVoiceIconChevron, @"Voice output options are not available in Discord Lite yet.");
+        [(DLVoiceToolbarButton *)voiceDeafenMenuButton setSegmentPosition:2];
+        [voiceDeafenMenuButton setTarget:self];
+        [voiceDeafenMenuButton setAction:@selector(voiceFeatureUnavailable:)];
+        [voiceToolbarView addSubview:voiceDeafenMenuButton];
+        voiceScreenShareButton = [[DLVoiceToolbarButton alloc] initWithFrame:NSMakeRect(112, 0, 38, 34)];
+        [voiceScreenShareButton setTitle:@"Share"];
+        [voiceScreenShareButton setBezelStyle:NSRoundedBezelStyle];
+        DLConfigureVoiceToolbarButton(voiceScreenShareButton, DLVoiceIconScreenShare, @"Screen sharing is not available in Discord Lite yet.");
+        [voiceScreenShareButton setTarget:self];
+        [voiceScreenShareButton setAction:@selector(voiceFeatureUnavailable:)];
+        [voiceToolbarView addSubview:voiceScreenShareButton];
+        voiceInviteButton = [[DLVoiceToolbarButton alloc] initWithFrame:NSMakeRect(154, 0, 38, 34)];
+        [voiceInviteButton setTitle:@"Invite"];
+        [voiceInviteButton setBezelStyle:NSRoundedBezelStyle];
+        DLConfigureVoiceToolbarButton(voiceInviteButton, DLVoiceIconInvite, @"Voice invites are not available in Discord Lite yet.");
+        [voiceInviteButton setTarget:self];
+        [voiceInviteButton setAction:@selector(voiceFeatureUnavailable:)];
+        [voiceToolbarView addSubview:voiceInviteButton];
+        voiceActivityButton = [[DLVoiceToolbarButton alloc] initWithFrame:NSMakeRect(196, 0, 38, 34)];
+        [voiceActivityButton setTitle:@"Apps"];
+        [voiceActivityButton setBezelStyle:NSRoundedBezelStyle];
+        DLConfigureVoiceToolbarButton(voiceActivityButton, DLVoiceIconActivities, @"Activities are not available in Discord Lite yet.");
+        [voiceActivityButton setTarget:self];
+        [voiceActivityButton setAction:@selector(voiceFeatureUnavailable:)];
+        [voiceToolbarView addSubview:voiceActivityButton];
+        voiceNoiseSuppressionButton = [[DLVoiceToolbarButton alloc] initWithFrame:NSMakeRect(238, 0, 38, 34)];
+        DLConfigureVoiceToolbarButton(voiceNoiseSuppressionButton, DLVoiceIconNoiseSuppression, @"Noise suppression is not available in Discord Lite yet.");
+        [voiceNoiseSuppressionButton setTarget:self];
+        [voiceNoiseSuppressionButton setAction:@selector(voiceFeatureUnavailable:)];
+        [voiceToolbarView addSubview:voiceNoiseSuppressionButton];
+        voiceMoreButton = [[DLVoiceToolbarButton alloc] initWithFrame:NSMakeRect(238, 0, 38, 34)];
+        [voiceMoreButton setTitle:@"More"];
+        [voiceMoreButton setBezelStyle:NSRoundedBezelStyle];
+        DLConfigureVoiceToolbarButton(voiceMoreButton, DLVoiceIconMore, @"More call options are not available in Discord Lite yet.");
+        [voiceMoreButton setTarget:self];
+        [voiceMoreButton setAction:@selector(voiceFeatureUnavailable:)];
+        [voiceToolbarView addSubview:voiceMoreButton];
+        voiceLeaveButton = [[DLVoiceToolbarButton alloc] initWithFrame:NSMakeRect(280, 0, 80, 38)];
+        [voiceLeaveButton setTitle:@"Leave"];
         [voiceLeaveButton setBezelStyle:NSRoundedBezelStyle];
+        DLConfigureVoiceToolbarButton(voiceLeaveButton, DLVoiceIconLeave, @"Leave voice");
+        [(DLVoiceToolbarButton *)voiceLeaveButton setDangerButton:YES];
         [voiceLeaveButton setTarget:self];
         [voiceLeaveButton setAction:@selector(leaveVoice:)];
-        [voicePanelView addSubview:voiceLeaveButton];
+        [voiceToolbarView addSubview:voiceLeaveButton];
+        voicePopoutButton = [[DLVoiceToolbarButton alloc] initWithFrame:NSMakeRect(364, 0, 38, 34)];
+        [voicePopoutButton setTitle:@"Pop"];
+        [voicePopoutButton setBezelStyle:NSRoundedBezelStyle];
+        DLConfigureVoiceToolbarButton(voicePopoutButton, DLVoiceIconPopout, @"Pop-out voice is not available in Discord Lite yet.");
+        [voicePopoutButton setTarget:self];
+        [voicePopoutButton setAction:@selector(voiceFeatureUnavailable:)];
+        [voiceToolbarView addSubview:voicePopoutButton];
+        voiceFullscreenButton = [[DLVoiceToolbarButton alloc] initWithFrame:NSMakeRect(406, 0, 38, 34)];
+        [voiceFullscreenButton setTitle:@"Full"];
+        [voiceFullscreenButton setBezelStyle:NSRoundedBezelStyle];
+        DLConfigureVoiceToolbarButton(voiceFullscreenButton, DLVoiceIconFullscreen, @"Full-screen voice is not available in Discord Lite yet.");
+        [voiceFullscreenButton setTarget:self];
+        [voiceFullscreenButton setAction:@selector(voiceFeatureUnavailable:)];
+        [voiceToolbarView addSubview:voiceFullscreenButton];
         [voiceMuteButton release];
+        [voiceMuteMenuButton release];
         [voiceDeafenButton release];
+        [voiceDeafenMenuButton release];
+        [voiceScreenShareButton release];
+        [voiceInviteButton release];
+        [voiceActivityButton release];
+        [voiceNoiseSuppressionButton release];
+        [voiceMoreButton release];
         [voiceLeaveButton release];
-        [voiceInputPopup release];
+        [voicePopoutButton release];
+        [voiceFullscreenButton release];
+        [voiceToolbarView release];
         [voicePanelView setHidden:YES];
         [contentView addSubview:voicePanelView];
 
@@ -1407,7 +1676,69 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(updateTextViewSizing) name:NSWindowDidResizeNotification object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(layoutMainWindow:) name:NSWindowDidResizeNotification object:[self window]];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(windowDidResize:) name:NSWindowDidResizeNotification object:self.window];
+    [self showStartupView];
 }
+
+-(NSTextField *)startupLabelWithFrame:(NSRect)frame text:(NSString *)text font:(NSFont *)font color:(NSColor *)color {
+    NSTextField *label = [[[NSTextField alloc] initWithFrame:frame] autorelease];
+    [label setEditable:NO]; [label setSelectable:NO]; [label setBordered:NO]; [label setDrawsBackground:NO];
+    [label setAlignment:NSCenterTextAlignment]; [label setFont:font]; [label setTextColor:color]; [label setStringValue:text];
+    return label;
+}
+
+-(void)showStartupView {
+    if (startupWindow) return;
+    startupWindow = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 560, 610)
+                                                 styleMask:(NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask)
+                                                   backing:NSBackingStoreBuffered defer:NO];
+    [startupWindow setTitle:@"Discord Lite"]; [startupWindow setReleasedWhenClosed:NO]; [startupWindow setDelegate:(id)self];
+    [startupWindow setMinSize:NSMakeSize(420, 460)]; [startupWindow setMaxSize:NSMakeSize(560, 610)];
+    startupView = [[DLLinenStartupView alloc] initWithFrame:NSMakeRect(0, 0, 560, 610)];
+    [startupView setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
+    NSTextField *title = [self startupLabelWithFrame:NSMakeRect(0, 0, 260, 30) text:@"Discord Lite" font:[NSFont boldSystemFontOfSize:25.0f] color:[NSColor colorWithCalibratedWhite:0.94f alpha:1.0f]];
+    [title setFrameOrigin:NSMakePoint(150.0f, 228.0f)]; [title setAutoresizingMask:NSViewMinXMargin | NSViewMaxXMargin | NSViewMinYMargin | NSViewMaxYMargin]; [startupView addSubview:title];
+    startupSpinner = [[DLWhiteSpinner alloc] initWithFrame:NSMakeRect(255.0f, 283.0f, 50.0f, 50.0f)];
+    [startupSpinner setAutoresizingMask:NSViewMinXMargin | NSViewMaxXMargin | NSViewMinYMargin | NSViewMaxYMargin]; [startupView addSubview:startupSpinner]; [startupSpinner startAnimation:nil];
+    startupStatusLabel = [[self startupLabelWithFrame:NSMakeRect(125.0f, 355.0f, 310.0f, 19.0f) text:@"CONNECTING…" font:[NSFont systemFontOfSize:12.0f] color:[NSColor colorWithCalibratedWhite:0.82f alpha:1.0f]] retain];
+    [startupStatusLabel setAutoresizingMask:NSViewMinXMargin | NSViewMaxXMargin | NSViewMinYMargin | NSViewMaxYMargin]; [startupView addSubview:startupStatusLabel];
+    [startupWindow setContentView:startupView]; [[self window] addChildWindow:startupWindow ordered:NSWindowAbove]; [startupWindow center]; [startupWindow makeKeyAndOrderFront:nil];
+}
+
+-(void)cacheStartupAvatarForUser:(DLUser *)user {
+    if (!user || ![[user avatarID] length]) return;
+    NSString *userID = [user userID];
+    if (!userID || [startupPendingAvatarUserIDs containsObject:userID]) return;
+    [startupPendingAvatarUserIDs addObject:userID]; [user loadAvatarData];
+}
+
+-(void)beginStartupProfileImageCache {
+    if (!startupWindow || !startupInitialDataReceived) return;
+    [startupPendingAvatarUserIDs release]; startupPendingAvatarUserIDs = [[NSMutableSet alloc] init];
+    [startupStatusLabel setStringValue:@"CACHING PROFILE IMAGES…"];
+    DLController *controller = [DLController sharedInstance]; [self cacheStartupAvatarForUser:[controller myUser]];
+    NSEnumerator *channelEnumerator = [[controller directMessageChannels] objectEnumerator]; DLDirectMessageChannel *channel;
+    while (channel = [channelEnumerator nextObject]) {
+        NSEnumerator *recipientEnumerator = [[channel recipients] objectEnumerator]; DLUser *recipient;
+        while (recipient = [recipientEnumerator nextObject]) [self cacheStartupAvatarForUser:recipient];
+    }
+    [self performSelector:@selector(finishStartupView) withObject:nil afterDelay:([startupPendingAvatarUserIDs count] ? 12.0f : 0.05f)];
+}
+
+-(void)startupAvatarDidUpdate:(NSNotification *)notification {
+    DLUser *user = [notification object];
+    if (!startupWindow || !user || ![user userID]) return;
+    [startupPendingAvatarUserIDs removeObject:[user userID]];
+    if (![startupPendingAvatarUserIDs count]) [self finishStartupView];
+}
+
+-(void)finishStartupView {
+    if (!startupWindow || !startupInitialDataReceived) return;
+    [startupSpinner stopAnimation:nil]; [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(finishStartupView) object:nil];
+    [[self window] removeChildWindow:startupWindow]; [startupWindow orderOut:nil]; [startupWindow release]; startupWindow = nil;
+    [startupView release]; startupView = nil; [startupSpinner release]; startupSpinner = nil; [startupStatusLabel release]; startupStatusLabel = nil; [startupPendingAvatarUserIDs release]; startupPendingAvatarUserIDs = nil;
+}
+
+-(BOOL)windowShouldClose:(id)sender { return sender != startupWindow; }
 
 -(void)setDelegate:(id<DLMainWindowDelegate>)inDelegate {
     delegate = inDelegate;
@@ -1434,7 +1765,6 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
 -(void)showVoicePanelForChannel:(DLChannel *)channel {
     [voiceTitleTextField setStringValue:[NSString stringWithFormat:@"🔊 %@", [channel name]]];
     [voicePanelView setHidden:NO];
-    [self reloadVoiceInputDevices];
     [chatScrollView setHidden:YES];
     [messageEntryContainerView setHidden:YES];
     [voiceStatusTimer invalidate];
@@ -1442,29 +1772,13 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
     [self updateVoiceStatus:nil];
 }
 
--(void)reloadVoiceInputDevices {
-    NSString *selectedUID = [[NSUserDefaults standardUserDefaults] stringForKey:@"DLVoiceInputDeviceUID"];
-    [voiceInputPopup removeAllItems];
-    [voiceInputPopup addItemWithTitle:@"Microphone: System Default"];
-    for (NSDictionary *device in [DLVoiceCapture inputDevices]) {
-        [voiceInputPopup addItemWithTitle:[NSString stringWithFormat:@"Microphone: %@", [device objectForKey:@"name"]]];
-        [[voiceInputPopup lastItem] setRepresentedObject:[device objectForKey:@"uid"]];
-        if ([[device objectForKey:@"uid"] isEqualToString:selectedUID]) [voiceInputPopup selectItem:[voiceInputPopup lastItem]];
-    }
-}
-
--(IBAction)voiceInputWasSelected:(id)sender {
-    NSString *deviceUID = [[voiceInputPopup selectedItem] representedObject];
-    if ([deviceUID length]) [[NSUserDefaults standardUserDefaults] setObject:deviceUID forKey:@"DLVoiceInputDeviceUID"];
-    else [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"DLVoiceInputDeviceUID"];
-    [[DLWSController sharedInstance] restartVoiceCapture];
-}
-
 -(void)updateVoiceStatus:(NSTimer *)timer {
     DLWSController *voice = [DLWSController sharedInstance];
     [voiceStatusTextField setStringValue:[voice voiceStatusText]];
-    [voiceMuteButton setTitle:[voice isVoiceSelfMuted] ? @"Unmute mic" : @"Mute mic"];
-    [voiceDeafenButton setTitle:[voice isVoiceSelfDeafened] ? @"Undeafen" : @"Deafen"];
+    [voiceMuteButton setImage:DLVoiceToolbarImage([voice isVoiceSelfMuted] ? DLVoiceIconMutedMicrophone : DLVoiceIconMicrophone)];
+    [voiceMuteButton setToolTip:[voice isVoiceSelfMuted] ? @"Unmute microphone" : @"Mute microphone"];
+    [voiceDeafenButton setImage:DLVoiceToolbarImage([voice isVoiceSelfDeafened] ? DLVoiceIconDeafenedHeadphones : DLVoiceIconHeadphones)];
+    [voiceDeafenButton setToolTip:[voice isVoiceSelfDeafened] ? @"Undeafen" : @"Deafen"];
 }
 
 -(IBAction)toggleVoiceMute:(id)sender {
@@ -1482,6 +1796,15 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
 -(IBAction)leaveVoice:(id)sender {
     [[DLWSController sharedInstance] leaveVoiceChannel];
     [self resetUI];
+}
+
+-(IBAction)voiceFeatureUnavailable:(id)sender {
+    NSAlert *alert = [[NSAlert alloc] init];
+    [alert setMessageText:@"Voice feature not available"];
+    [alert setInformativeText:[sender toolTip]];
+    [alert addButtonWithTitle:@"OK"];
+    [alert runModal];
+    [alert release];
 }
 
 -(void)loadMainContent {
@@ -1939,6 +2262,13 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
 
 -(void)dealloc {
     [[NSNotificationCenter defaultCenter] removeObserver:self];
+    [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(finishStartupView) object:nil];
+    [startupSpinner stopAnimation:nil];
+    [startupSpinner release];
+    [startupStatusLabel release];
+    [startupPendingAvatarUserIDs release];
+    [startupWindow release];
+    [startupView release];
     [memberListViews release];
     [memberListDocumentView release];
     [memberListScrollView release];
@@ -2024,6 +2354,9 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
     // can leave an empty scroll view whose document height still changes.
     [self performSelectorOnMainThread:@selector(populateUserServers) withObject:nil waitUntilDone:NO];
     [self performSelectorOnMainThread:@selector(loadMainContent) withObject:nil waitUntilDone:NO];
+    startupInitialDataReceived = YES;
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(startupAvatarDidUpdate:) name:DLUserAvatarDidUpdateNotification object:nil];
+    [self performSelectorOnMainThread:@selector(beginStartupProfileImageCache) withObject:nil waitUntilDone:NO];
 }
 
 -(void)requestDidFailWithError:(DLError *)e {
