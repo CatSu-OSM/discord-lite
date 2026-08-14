@@ -10,6 +10,7 @@
     id<DLVoiceCaptureDelegate> delegate;
     void *queue;
     void *buffers[3];
+    NSMutableData *pendingPCM;
     BOOL running;
 }
 

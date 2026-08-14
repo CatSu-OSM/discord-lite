@@ -12,9 +12,16 @@ static void DLVoiceCaptureCallback(void *userData, AudioQueueRef audioQueue, Aud
                                    const AudioTimeStamp *startTime, UInt32 packetCount, const AudioStreamPacketDescription *packetDescriptions) {
     DLVoiceCapture *capture = (DLVoiceCapture *)userData;
     if (capture->running && buffer->mAudioDataByteSize) {
-        NSData *pcm = [NSData dataWithBytes:buffer->mAudioData length:buffer->mAudioDataByteSize];
-        [(NSObject *)capture->delegate performSelectorOnMainThread:@selector(voiceCaptureDidReceivePCM:)
-                                                          withObject:pcm waitUntilDone:NO];
+        // Input devices are allowed to return partial AudioQueue buffers.
+        // Discord/Opus needs exactly 20 ms (960 stereo frames), so combine
+        // callbacks here rather than silently dropping every non-3840-byte one.
+        [capture->pendingPCM appendBytes:buffer->mAudioData length:buffer->mAudioDataByteSize];
+        while ([capture->pendingPCM length] >= 3840) {
+            NSData *pcm = [NSData dataWithBytes:[capture->pendingPCM bytes] length:3840];
+            [capture->pendingPCM replaceBytesInRange:NSMakeRange(0, 3840) withBytes:NULL length:0];
+            [(NSObject *)capture->delegate performSelectorOnMainThread:@selector(voiceCaptureDidReceivePCM:)
+                                                              withObject:pcm waitUntilDone:NO];
+        }
     }
     if (capture->running) {
         buffer->mAudioDataByteSize = buffer->mAudioDataBytesCapacity;
@@ -27,11 +34,13 @@ static void DLVoiceCaptureCallback(void *userData, AudioQueueRef audioQueue, Aud
 -(id)initWithDelegate:(id<DLVoiceCaptureDelegate>)inDelegate {
     self = [super init];
     delegate = inDelegate;
+    pendingPCM = [[NSMutableData alloc] init];
     return self;
 }
 
 -(void)dealloc {
     [self stop];
+    [pendingPCM release];
     [super dealloc];
 }
 
@@ -81,6 +90,7 @@ static void DLVoiceCaptureCallback(void *userData, AudioQueueRef audioQueue, Aud
         queue = NULL;
     }
     memset(buffers, 0, sizeof(buffers));
+    [pendingPCM setLength:0];
 }
 
 @end
