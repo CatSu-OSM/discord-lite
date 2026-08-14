@@ -846,6 +846,10 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
 
 -(void)voiceCaptureDidReceivePCM:(NSData *)pcm {
     if (!voiceCapture || voiceSelfMuted || !voiceMedia || !voiceDAVEEnabled || voiceUDPSocket < 0 || [pcm length] != 3840) return;
+    // Discord requires the SSRC-bearing Speaking update before the first RTP
+    // packet.  Sending it after UDP media means the server can reject every
+    // otherwise valid microphone frame as an unknown SSRC.
+    [self sendVoiceSpeaking];
     NSError *opusError = nil;
     NSData *opus = [voiceMedia encodePCM:pcm frameCount:960 error:&opusError];
     if (!opus) {
@@ -882,7 +886,6 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
         NSLog(@"Voice RTP send failed.");
         return;
     }
-    [self sendVoiceSpeaking];
 }
 
 -(void)startVoiceUDPReceiveThread {
