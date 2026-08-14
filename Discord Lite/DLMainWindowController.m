@@ -1963,7 +1963,9 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
 }
 
 -(void)user:(DLUser *)u avatarDidUpdateWithData:(NSData *)data {
-    [myUserAvatarImage setImage:[DLUtil imageResize:[[[NSImage alloc] initWithData:data] autorelease] newSize:myUserAvatarImage.frame.size cornerRadius:MY_USER_AVATAR_RADIUS status:[u status]]];
+    if ([u isEqual:[[DLController sharedInstance] myUser]]) {
+        [myUserAvatarImage setImage:[DLUtil imageResize:[[[NSImage alloc] initWithData:data] autorelease] newSize:myUserAvatarImage.frame.size cornerRadius:MY_USER_AVATAR_RADIUS status:[u status]]];
+    }
     NSImageView *friendAvatar = [friendAvatarViews objectForKey:[u userID]];
     if (friendAvatar) [friendAvatar setImage:[DLUtil imageResize:[[[NSImage alloc] initWithData:data] autorelease] newSize:[friendAvatar frame].size cornerRadius:20.0f status:[u status]]];
 }
