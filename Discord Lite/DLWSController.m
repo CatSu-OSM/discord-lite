@@ -229,6 +229,7 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     voiceSelfDeafened = NO;
     voicePacketsReceived = 0;
     voicePacketsPlayed = 0;
+    voiceCredentialAttempts = 0;
     DLVoiceSetStatus(&voiceConnectionStatus, @"Disconnected");
     [voiceClientIDs removeAllObjects];
     shouldResume = NO;
@@ -569,6 +570,7 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     voicePacketsPlayed = 0;
     DLVoiceSetError(&voiceLastError, nil);
     DLVoiceSetStatus(&voiceConnectionStatus, @"Requesting voice credentials…");
+    voiceCredentialAttempts = 0;
     [voiceHelper stop];
     [voiceHelper release];
     voiceHelper = nil;
@@ -598,9 +600,25 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     [request setObject:data forKey:@kWSData];
     NSData *payload = [[CJSONSerializer serializer] serializeDictionary:request error:nil];
     [self sendWSTextData:payload];
+    [self performSelector:@selector(retryVoiceCredentialsForGeneration:) withObject:[NSNumber numberWithUnsignedInteger:voiceGeneration] afterDelay:3.0];
 
     [request release];
     [data release];
+}
+
+-(void)retryVoiceCredentialsForGeneration:(NSNumber *)generationNumber {
+    if ([generationNumber unsignedIntegerValue] != voiceGeneration || voiceConnectionStarting ||
+        (DLVoiceStringIsUsable(pendingVoiceSessionID) && DLVoiceStringIsUsable(pendingVoiceEndpoint) && DLVoiceStringIsUsable(pendingVoiceToken))) {
+        return;
+    }
+    if (voiceCredentialAttempts >= 2) {
+        DLVoiceSetError(&voiceLastError, @"Discord did not return voice credentials. Please reconnect.");
+        return;
+    }
+    voiceCredentialAttempts++;
+    DLVoiceSetStatus(&voiceConnectionStatus, @"Retrying voice credentials…");
+    [self sendVoiceStateForChannelID:pendingVoiceChannelID];
+    [self performSelector:@selector(retryVoiceCredentialsForGeneration:) withObject:generationNumber afterDelay:3.0];
 }
 
 -(void)beginQueuedVoiceJoin:(NSString *)expectedGuildID {

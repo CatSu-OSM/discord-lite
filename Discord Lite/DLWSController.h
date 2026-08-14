@@ -99,6 +99,7 @@ typedef enum {
     NSString *queuedVoiceGuildID;
     NSString *queuedVoiceChannelID;
     BOOL voiceLeavePending;
+    NSUInteger voiceCredentialAttempts;
     NSString *voiceServerIP;
     NSInteger voiceServerPort;
     NSArray *voiceEncryptionModes;

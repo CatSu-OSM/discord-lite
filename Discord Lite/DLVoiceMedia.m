@@ -11,14 +11,18 @@
 
 static NSString * const DLVoiceMediaErrorDomain = @"DLVoiceMediaError";
 
-static NSUInteger DLRTPHeaderLength(const unsigned char *bytes, NSUInteger length) {
+static NSUInteger DLRTPHeaderLength(const unsigned char *bytes, NSUInteger length, NSUInteger *encryptedExtensionLength) {
+    if (encryptedExtensionLength) *encryptedExtensionLength = 0;
     if (length < 12 || (bytes[0] >> 6) != 2) return 0;
     NSUInteger headerLength = 12 + ((bytes[0] & 0x0f) * 4);
     if (headerLength > length) return 0;
     if ((bytes[0] & 0x10) != 0) {
         if (headerLength + 4 > length) return 0;
         NSUInteger extensionWords = ((NSUInteger)bytes[headerLength + 2] << 8) | bytes[headerLength + 3];
-        headerLength += 4 + extensionWords * 4;
+        // RTP-size AEAD leaves the extension preamble in the authenticated
+        // header, but encrypts the extension elements with the media payload.
+        if (encryptedExtensionLength) *encryptedExtensionLength = extensionWords * 4;
+        headerLength += 4;
     }
     return headerLength <= length ? headerLength : 0;
 }
@@ -72,7 +76,7 @@ static NSUInteger DLRTPHeaderLength(const unsigned char *bytes, NSUInteger lengt
 }
 
 - (NSData *)encryptOpus:(NSData *)opus rtpHeader:(NSData *)header error:(NSError **)error {
-    if (!transportKey || !opus || ![opus length] || DLRTPHeaderLength([header bytes], [header length]) != [header length]) {
+    if (!transportKey || !opus || ![opus length] || DLRTPHeaderLength([header bytes], [header length], NULL) != [header length]) {
         if (error) *error = [NSError errorWithDomain:DLVoiceMediaErrorDomain code:-101 userInfo:nil];
         return nil;
     }
@@ -97,7 +101,8 @@ static NSUInteger DLRTPHeaderLength(const unsigned char *bytes, NSUInteger lengt
 
 - (NSData *)decryptVoicePacket:(NSData *)packet error:(NSError **)error {
     const unsigned char *bytes = [packet bytes];
-    NSUInteger headerLength = DLRTPHeaderLength(bytes, [packet length]);
+    NSUInteger encryptedExtensionLength = 0;
+    NSUInteger headerLength = DLRTPHeaderLength(bytes, [packet length], &encryptedExtensionLength);
     NSUInteger nonceLength = sizeof(uint32_t);
     if (!transportKey || !headerLength || [packet length] < headerLength + nonceLength + crypto_aead_xchacha20poly1305_ietf_ABYTES) {
         if (error) *error = [NSError errorWithDomain:DLVoiceMediaErrorDomain code:-103 userInfo:nil];
@@ -116,6 +121,13 @@ static NSUInteger DLRTPHeaderLength(const unsigned char *bytes, NSUInteger lengt
         return nil;
     }
     [opus setLength:(NSUInteger)opusLength];
+    if (encryptedExtensionLength > [opus length]) {
+        if (error) *error = [NSError errorWithDomain:DLVoiceMediaErrorDomain code:-105 userInfo:nil];
+        return nil;
+    }
+    if (encryptedExtensionLength) {
+        [opus replaceBytesInRange:NSMakeRange(0, encryptedExtensionLength) withBytes:NULL length:0];
+    }
     return opus;
 }
 
