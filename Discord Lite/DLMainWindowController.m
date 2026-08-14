@@ -515,6 +515,20 @@
 const NSTimeInterval TYPING_SEND_INTERVAL = 8.0;
 const CGFloat MY_USER_AVATAR_RADIUS = 18.0f;
 
+-(void)layoutFriendsList {
+    if (!friendsContentView) return;
+    NSRect frame = NSUnionRect([chatScrollView frame], [messageEntryContainerView frame]);
+    [friendsContentView setFrame:frame];
+    [friendsStatusLabel setFrame:NSMakeRect(24.0f, NSHeight(frame) - 43.0f, 260.0f, 18.0f)];
+    [friendsScrollView setFrame:NSMakeRect(0.0f, 0.0f, NSWidth(frame), NSHeight(frame) - 56.0f)];
+    CGFloat tabWidth = 70.0f;
+    CGFloat startX = floorf((NSWidth([chatViewHeader bounds]) - ([friendsTabs count] * tabWidth)) / 2.0f);
+    NSUInteger i;
+    for (i = 0; i < [friendsTabs count]; i++) {
+        [[friendsTabs objectAtIndex:i] setFrame:NSMakeRect(startX + (i * tabWidth), 8.0f, tabWidth, 25.0f)];
+    }
+}
+
 -(void)selectFriendsTab:(id)sender {
     NSUInteger i;
     for (i = 0; i < [friendsTabs count]; i++) [[friendsTabs objectAtIndex:i] setState:(([friendsTabs objectAtIndex:i] == sender) ? NSOnState : NSOffState)];
@@ -550,17 +564,19 @@ const CGFloat MY_USER_AVATAR_RADIUS = 18.0f;
 
 -(void)buildFriendsList {
     friendsTabs = [[NSMutableArray alloc] init]; friendRows = [[NSMutableArray alloc] init]; friendAvatarViews = [[NSMutableDictionary alloc] init];
-    NSArray *titles = [NSArray arrayWithObjects:@"Online", @"All", @"Pending", @"Blocked", nil]; CGFloat x = 138.0f; NSUInteger i;
+    NSArray *titles = [NSArray arrayWithObjects:@"Online", @"All", @"Pending", @"Blocked", nil]; CGFloat x = 0.0f; NSUInteger i;
     for (i = 0; i < [titles count]; i++) { NSButton *tab = [[[NSButton alloc] initWithFrame:NSMakeRect(x, 8, 70, 25)] autorelease]; [tab setTitle:[titles objectAtIndex:i]]; [tab setBezelStyle:NSShadowlessSquareBezelStyle]; [tab setTarget:self]; [tab setAction:@selector(selectFriendsTab:)]; [tab setHidden:YES]; [chatViewHeader addSubview:tab]; [friendsTabs addObject:tab]; x += 70.0f; }
     [[friendsTabs objectAtIndex:0] setState:NSOnState];
     NSRect frame = NSUnionRect([chatScrollView frame], [messageEntryContainerView frame]);
-    friendsContentView = [[NSView_BGColor alloc] initWithFrame:frame]; [friendsContentView setBackgroundColor:[chatScrollView backgroundColor]]; [friendsContentView setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable]; [friendsContentView setHidden:YES]; [[chatScrollView superview] addSubview:friendsContentView];
+    NSColor *friendsBackground = [NSColor colorWithCalibratedRed:49.0f/255.0f green:52.0f/255.0f blue:58.0f/255.0f alpha:1.0f];
+    friendsContentView = [[NSView_BGColor alloc] initWithFrame:frame]; [friendsContentView setBackgroundColor:friendsBackground]; [friendsContentView setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable]; [friendsContentView setHidden:YES]; [[chatScrollView superview] addSubview:friendsContentView];
     friendsStatusLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(24, frame.size.height - 43, 260, 18)]; [friendsStatusLabel setEditable:NO]; [friendsStatusLabel setBordered:NO]; [friendsStatusLabel setDrawsBackground:NO]; [friendsStatusLabel setTextColor:[NSColor whiteColor]]; [friendsContentView addSubview:friendsStatusLabel];
-    friendsScrollView = [[NSScrollView alloc] initWithFrame:NSMakeRect(0, 0, frame.size.width, frame.size.height - 56)]; [friendsScrollView setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable]; [friendsScrollView setHasVerticalScroller:YES]; [friendsScrollView setAutohidesScrollers:YES]; [friendsScrollView setBorderType:NSNoBorder];
-    friendsDocumentView = [[NSView alloc] initWithFrame:[[friendsScrollView contentView] bounds]]; [friendsScrollView setDocumentView:friendsDocumentView]; [friendsContentView addSubview:friendsScrollView];
+    friendsScrollView = [[NSScrollView alloc] initWithFrame:NSMakeRect(0, 0, frame.size.width, frame.size.height - 56)]; [friendsScrollView setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable]; [friendsScrollView setHasVerticalScroller:YES]; [friendsScrollView setAutohidesScrollers:YES]; [friendsScrollView setBorderType:NSNoBorder]; [friendsScrollView setDrawsBackground:YES]; [friendsScrollView setBackgroundColor:friendsBackground]; [[friendsScrollView contentView] setDrawsBackground:YES]; [[friendsScrollView contentView] setBackgroundColor:friendsBackground];
+    friendsDocumentView = [[NSView_BGColor alloc] initWithFrame:[[friendsScrollView contentView] bounds]]; [(NSView_BGColor *)friendsDocumentView setBackgroundColor:friendsBackground]; [friendsScrollView setDocumentView:friendsDocumentView]; [friendsContentView addSubview:friendsScrollView];
+    [self layoutFriendsList];
 }
 
--(void)showFriendsList { [self hideMemberList]; friendsVisible = YES; [chatHeaderLabel setStringValue:@"Friends"]; [chatScrollView setHidden:YES]; [messageEntryContainerView setHidden:YES]; NSEnumerator *e = [friendsTabs objectEnumerator]; NSButton *tab; while (tab = [e nextObject]) [tab setHidden:NO]; [self reloadFriendsList]; [friendsContentView setHidden:NO]; }
+-(void)showFriendsList { [self hideMemberList]; [self layoutFriendsList]; friendsVisible = YES; [chatHeaderLabel setStringValue:@"Friends"]; [chatScrollView setHidden:YES]; [messageEntryContainerView setHidden:YES]; NSEnumerator *e = [friendsTabs objectEnumerator]; NSButton *tab; while (tab = [e nextObject]) [tab setHidden:NO]; [self reloadFriendsList]; [friendsContentView setHidden:NO]; }
 -(void)hideFriendsList { if (!friendsVisible) return; friendsVisible = NO; [friendsContentView setHidden:YES]; [chatScrollView setHidden:NO]; [messageEntryContainerView setHidden:NO]; NSEnumerator *e = [friendsTabs objectEnumerator]; NSButton *tab; while (tab = [e nextObject]) [tab setHidden:YES]; }
 const CGFloat MEMBER_LIST_WIDTH = 220.0f;
 const NSInteger MEMBER_LIST_PAGE_SIZE = 30;
@@ -1058,6 +1074,7 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
         tagFrame.size.width = chatWidth;
         [tagSelectionScrollView setFrame:tagFrame];
     }
+    [self layoutFriendsList];
     [chatScrollView screenResize];
 }
 
