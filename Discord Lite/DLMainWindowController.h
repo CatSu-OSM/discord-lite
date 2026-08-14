@@ -22,6 +22,9 @@
 #import "PendingAttachmentViewController.h"
 #import "TagSelectionViewController.h"
 #import "DLMessageEditor.h"
+#import "DLMemberListItemViewController.h"
+
+@class DLWhiteSpinner;
 
 typedef enum {
     DLDialogConfirmMessageDelete = 0
@@ -32,12 +35,13 @@ typedef enum {
 -(void)logoutWasSuccessful;
 @end
 
-@interface DLMainWindowController : NSWindowController <DLControllerDelegate, ServerItemDelegate, ChannelItemDelegate, DLUserDelegate, DMChannelItemDelegate, PendingAttachmentItemDelegate, DLUserTypingDelegate, TagSelectionItemDelegate, DLMessageEditorDelegate, ChatItemViewControllerDelegate, ChatScrollViewDelegate> {
+@interface DLMainWindowController : NSWindowController <DLControllerDelegate, ServerItemDelegate, ChannelItemDelegate, DLUserDelegate, DMChannelItemDelegate, PendingAttachmentItemDelegate, DLUserTypingDelegate, TagSelectionItemDelegate, DLMessageEditorDelegate, ChatItemViewControllerDelegate, ChatScrollViewDelegate, NSViewEventDelegate, DLMemberListItemDelegate> {
     
     BOOL isLoadingViews;
     BOOL isLoadingMessages;
     BOOL isTyping;
     BOOL madeMentionChange;
+    BOOL isApplyingEmojiSubstitution;
     
     IBOutlet NSView_BGColor *messageEntryContainerView;
     IBOutlet NSView_BGColor *channelViewHeader;
@@ -65,13 +69,23 @@ typedef enum {
     IBOutlet NSTextField *myUsernameTextField;
     IBOutlet NSTextField *myDiscTextField;
     IBOutlet NSButton *attachButton;
+    NSButton *emojiButton;
     
     
     IBOutlet NSTextField *serverLabel;
     IBOutlet NSImageView *chatHeaderImage;
     IBOutlet NSTextField *chatHeaderLabel;
+    NSTextField *historyLoadingLabel;
+    DLWhiteSpinner *historyLoadingSpinner;
     IBOutlet HorizontalDynamicScrollView *pendingAttachmentsScrollView;
     IBOutlet NSTextField *typingStatusTextField;
+    NSView_BGColor *voicePanelView;
+    NSTextField *voiceTitleTextField;
+    NSTextField *voiceStatusTextField;
+    NSButton *voiceMuteButton;
+    NSButton *voiceDeafenButton;
+    NSButton *voiceLeaveButton;
+    NSTimer *voiceStatusTimer;
     
     IBOutlet NSView *replyToView;
     IBOutlet NSTextField *replyToTextField;
@@ -84,6 +98,17 @@ typedef enum {
     
     NSArray *serverViews;
     NSArray *channelViews;
+    NSArray *memberListViews;
+    NSView_BGColor *memberListView;
+    NSTextField *memberListHeaderLabel;
+    NSScrollView *memberListScrollView;
+    NSView *memberListDocumentView;
+    BOOL memberListVisible;
+    BOOL isLoadingMemberListChunk;
+    NSInteger memberListNextIndex;
+    NSRect chatScrollViewFullFrame;
+    NSRect chatHeaderFullFrame;
+    NSRect messageEntryContainerFullFrame;
     
     NSMutableArray *typingUsers;
     
@@ -93,8 +118,11 @@ typedef enum {
     NSTimer *serverItemTrackingTimer;
     
     id<DLMainWindowDelegate> delegate;
+    BOOL hasConfiguredWindow;
 }
 - (IBAction)showFileOpenDialog:(id)sender;
+- (IBAction)showPreferencesWindow:(id)sender;
+- (IBAction)showEmojiMenu:(id)sender;
 - (IBAction)showSettingsMenu:(id)sender;
 - (IBAction)removeReferencedMessage:(id)sender;
 

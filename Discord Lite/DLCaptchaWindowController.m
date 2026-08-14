@@ -14,11 +14,29 @@
 
 @implementation DLCaptchaWindowController
 
-- (void)windowDidLoad {
-    [super windowDidLoad];
+- (id)init {
+    NSWindow *captchaWindow = [[NSWindow alloc] initWithContentRect:NSMakeRect(196.0f, 240.0f, 343.0f, 501.0f)
+                                                           styleMask:NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask
+                                                             backing:NSBackingStoreBuffered
+                                                               defer:NO];
+    self = [super initWithWindow:captchaWindow];
+    [captchaWindow release];
+    if (!self) {
+        return nil;
+    }
+
+    [[self window] setTitle:@"Captcha"];
+    [[self window] setDelegate:self];
+    captchaWebView = [[WebView alloc] initWithFrame:[[[self window] contentView] bounds]];
+    [captchaWebView setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
+    [[[self window] contentView] addSubview:captchaWebView];
     [captchaWebView setResourceLoadDelegate:self];
     captchaSuccess = NO;
-    // Implement this method to handle any initialization after your window controller's window has been loaded from its nib file.
+    return self;
+}
+
+-(id)initWithWindowNibName:(NSString *)windowNibName {
+    return [self init];
 }
 
 -(void)setDelegate:(id<DLCaptchaWindowDelegate>)inDelegate {
@@ -53,6 +71,12 @@
 
 - (void)windowWillClose:(NSNotification *)notification {
     [delegate didCompleteCaptchaSuccessfully:captchaSuccess];
+}
+
+- (void)dealloc {
+    [captchaWebView setResourceLoadDelegate:nil];
+    [captchaWebView release];
+    [super dealloc];
 }
 
 @end

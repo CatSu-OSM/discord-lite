@@ -7,13 +7,18 @@
 //
 
 #import "DLChannel.h"
+#import "AsyncHTTPGetRequest.h"
 #import "DLUser.h"
 
+#define GroupDMIconCDNRoot "https://cdn.discordapp.com/channel-icons"
 
 
-@interface DLDirectMessageChannel : DLChannel <DLUserDelegate> {
+
+@interface DLDirectMessageChannel : DLChannel <DLUserDelegate, AsyncHTTPRequestDelegate> {
     NSArray *recipients;
     NSDate *lastUpdateTimestamp;
+    NSString *iconID;
+    AsyncHTTPGetRequest *iconReq;
 }
 
 -(id)init;

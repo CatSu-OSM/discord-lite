@@ -13,6 +13,12 @@
 #import "CJSONSerializer.h"
 #import "DLServer.h"
 #import "DLPreferencesHandler.h"
+#import "DLVoiceHelper.h"
+#import "DLVoiceMedia.h"
+#import "DLVoiceCapture.h"
+#import "DLVoicePlayback.h"
+
+#include <stdint.h>
 
 #include "curl_headers/curl.h"
 
@@ -28,6 +34,8 @@ typedef enum {
     OPCodeGeneral = 0,
     OPCodeHeartbeat = 1,
     OPCodeIdentify = 2,
+    OPCodePresenceUpdate = 3,
+    OPCodeVoiceStateUpdate = 4,
     OPCodeResume = 6,
     OPCodeQueryServerMembers = 8,
     OPCodeHello = 10,
@@ -41,6 +49,8 @@ typedef enum {
 -(void)wsDidReceiveMessage:(DLMessage *)m;
 -(void)wsDidReceivePrivateChannelData:(NSArray *)data;
 -(void)wsDidReceiveServerData:(NSArray *)data;
+-(void)wsDidReceiveServerChannelData:(NSDictionary *)data;
+-(void)wsDidDeleteServerChannelWithID:(NSString *)channelID;
 -(void)wsDidReceiveReadStateData:(NSArray *)data;
 -(void)wsDidReceiveUserData:(NSDictionary *)data;
 -(void)wsDidReceiveUserSettingsData:(NSDictionary *)data;
@@ -49,22 +59,69 @@ typedef enum {
 -(void)wsUserWithID:(NSString *)userID didStartTypingInServerWithID:(NSString *)serverID inChannelWithID:(NSString *)channelID withMemberData:(NSDictionary *)memberData;
 -(void)wsUserWithID:(NSString *)userID didStartTypingInDirectMessageChannelWithID:(NSString *)channelID;
 -(void)wsDidReceiveMemberData:(NSArray *)memberData forServerWithID:(NSString *)serverID;
+-(void)wsDidReceivePresenceData:(NSDictionary *)presenceData forServerWithID:(NSString *)serverID;
+-(void)wsDidUpdateCurrentUserActivity:(NSDictionary *)activity;
 -(void)wsMessageWithID:(NSString *)messageID wasUpdatedWithData:(NSDictionary *)data;
 -(void)wsMessageWithIDWasDeleted:(NSString *)messageID;
+-(void)wsVoiceConnectionReadyForGuildID:(NSString *)guildID
+                              channelID:(NSString *)channelID
+                              sessionID:(NSString *)voiceSessionID
+                               endpoint:(NSString *)endpoint
+                                  token:(NSString *)voiceToken
+                                 userID:(NSString *)userID;
 @end
 
-@interface DLWSController : NSObject {
+@interface DLWSController : NSObject <DLVoiceCaptureDelegate> {
     CURL *curlWebSocketHandle;
+    CURL *voiceWebSocketHandle;
     NSString *token;
     NSString *sessionID;
     NSTimer *heartbeatTimer;
+    NSTimer *voiceHeartbeatTimer;
     int heartbeatInterval;
+    int voiceHeartbeatInterval;
+    int voiceSequenceNumber;
+    int voiceUDPSocket;
+    uint32_t voiceSSRC;
     id<DLWSControllerDelegate> delegate;
     BOOL heartbeatResponseReceived;
     BOOL shouldResume;
     int sequenceNumber;
     BOOL didReconnect;
     BOOL didResume;
+    NSString *userID;
+    NSString *pendingVoiceGuildID;
+    NSString *pendingVoiceChannelID;
+    NSString *pendingVoiceSessionID;
+    NSString *pendingVoiceEndpoint;
+    NSString *pendingVoiceToken;
+    NSString *queuedVoiceGuildID;
+    NSString *queuedVoiceChannelID;
+    BOOL voiceLeavePending;
+    NSString *voiceServerIP;
+    NSInteger voiceServerPort;
+    NSArray *voiceEncryptionModes;
+    BOOL voiceConnectionStarting;
+    DLVoiceHelper *voiceHelper;
+    NSMutableSet *voiceClientIDs;
+    BOOL voiceDAVEEnabled;
+    DLVoiceMedia *voiceMedia;
+    uint16_t voiceRTPSequence;
+    uint32_t voiceRTPTimestamp;
+    DLVoiceCapture *voiceCapture;
+    BOOL voiceIsSpeaking;
+    DLVoicePlayback *voicePlayback;
+    NSMutableDictionary *voiceUsersBySSRC;
+    NSMutableDictionary *voicePendingPacketsBySSRC;
+    BOOL voiceSelfMuted;
+    BOOL voiceSelfDeafened;
+    NSUInteger voicePacketsReceived;
+    NSUInteger voicePacketsPlayed;
+    NSString *voiceLastError;
+    NSString *voiceConnectionStatus;
+    NSUInteger voiceGeneration;
+    NSTimer *presenceUpdateTimer;
+    NSString *currentStatus;
 }
 
 +(DLWSController *)sharedInstance;
@@ -75,8 +132,19 @@ typedef enum {
 
 -(void)updateWSForDirectMessageChannel:(DLChannel *)c;
 -(void)updateWSForChannel:(DLChannel *)c inServer:(DLServer *)s;
+-(void)updateWSForChannel:(DLChannel *)c inServer:(DLServer *)s memberRangeStart:(NSInteger)start limit:(NSInteger)limit;
+-(void)joinVoiceChannel:(DLChannel *)c inServer:(DLServer *)s;
+-(void)leaveVoiceChannel;
+-(void)setVoiceSelfMuted:(BOOL)muted;
+-(void)setVoiceSelfDeafened:(BOOL)deafened;
+-(BOOL)isVoiceSelfMuted;
+-(BOOL)isVoiceSelfDeafened;
+-(NSString *)voiceStatusText;
 
 -(void)queryServer:(DLServer *)s forMembersContainingUsername:(NSString *)username;
+
+-(void)setDiscordLitePresence;
+-(void)clearDiscordLitePresence;
 
 
 //For libcurl callback

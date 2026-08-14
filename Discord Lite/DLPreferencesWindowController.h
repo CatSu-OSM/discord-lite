@@ -22,5 +22,6 @@
 - (IBAction)useProxyToggled:(id)sender;
 - (IBAction)useSOCKSPasswordToggled:(id)sender;
 - (IBAction)applyChanges:(id)sender;
+- (IBAction)logOutUser:(id)sender;
 
 @end

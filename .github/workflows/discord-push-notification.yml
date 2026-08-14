@@ -1,0 +1,34 @@
+name: Discord Push Notification
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  notify-discord:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send push notification
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          REPOSITORY: ${{ github.repository }}
+          BRANCH: ${{ github.ref_name }}
+          PUSHER: ${{ github.actor }}
+          COMPARE_URL: ${{ github.event.compare }}
+          COMMIT_ID: ${{ github.sha }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          payload=$(jq -n \
+            --arg repository "$REPOSITORY" \
+            --arg branch "$BRANCH" \
+            --arg pusher "$PUSHER" \
+            --arg compare_url "$COMPARE_URL" \
+            --arg commit_id "$COMMIT_ID" \
+            --arg commit_message "$COMMIT_MESSAGE" \
+            '{username: "GitHub", embeds: [{title: ("Push to " + $repository), url: $compare_url, color: 5793266, fields: [{name: "Branch", value: ("`" + $branch + "`"), inline: true}, {name: "Pushed by", value: $pusher, inline: true}, {name: "Latest commit", value: ("`" + $commit_id[0:7] + "` " + $commit_message)}]}]}')
+          curl --fail-with-body --silent --show-error \
+            --header "Content-Type: application/json" \
+            --data "$payload" \
+            "$DISCORD_WEBHOOK"

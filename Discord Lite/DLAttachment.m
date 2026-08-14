@@ -10,6 +10,23 @@
 
 @implementation DLAttachment
 
+-(void)updateTypeFromMimeTypeAndFilename {
+    NSString *extension = [[filename pathExtension] lowercaseString];
+    BOOL hasImageExtension = [extension isEqualToString:@"png"] ||
+                             [extension isEqualToString:@"jpg"] ||
+                             [extension isEqualToString:@"jpeg"] ||
+                             [extension isEqualToString:@"gif"] ||
+                             [extension isEqualToString:@"webp"] ||
+                             [extension isEqualToString:@"bmp"] ||
+                             [extension isEqualToString:@"tif"] ||
+                             [extension isEqualToString:@"tiff"];
+    if ([mimeType rangeOfString:@"image/"].location != NSNotFound || hasImageExtension) {
+        type = AttachmentTypeImage;
+    } else {
+        type = AttachmentTypeFile;
+    }
+}
+
 -(id)init {
     self = [super init];
     type = AttachmentTypeImage;
@@ -29,11 +46,7 @@
         mimeType = @"application/octet-stream";
     }
     fileSize = [[d objectForKey:@"size"] intValue];
-    if ([mimeType rangeOfString:@"image/"].location != NSNotFound) {
-        type = AttachmentTypeImage;
-    } else {
-        type = AttachmentTypeFile;
-    }
+    [self updateTypeFromMimeTypeAndFilename];
     return self;
 }
 
@@ -144,6 +157,7 @@
     [filename release];
     [inFilename retain];
     filename = inFilename;
+    [self updateTypeFromMimeTypeAndFilename];
 }
 -(void)setWidth:(CGFloat)inWidth {
     width = inWidth;
@@ -161,11 +175,7 @@
     [mimeType release];
     [inMimeType retain];
     mimeType = inMimeType;
-    if ([mimeType rangeOfString:@"image/"].location != NSNotFound) {
-        type = AttachmentTypeImage;
-    } else {
-        type = AttachmentTypeFile;
-    }
+    [self updateTypeFromMimeTypeAndFilename];
 }
 
 -(BOOL)isEqual:(DLAttachment *)a {

@@ -14,16 +14,36 @@
 
 @implementation DLAttachmentWindowController
 
-- (void)windowDidLoad {
-    [super windowDidLoad];
-    
+- (id)init {
+    NSWindow *attachmentWindow = [[NSWindow alloc] initWithContentRect:NSMakeRect(196.0f, 240.0f, 480.0f, 270.0f)
+                                                              styleMask:NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask | NSResizableWindowMask
+                                                                backing:NSBackingStoreBuffered
+                                                                  defer:NO];
+    self = [super initWithWindow:attachmentWindow];
+    [attachmentWindow release];
+    if (!self) {
+        return nil;
+    }
+
+    [[self window] setTitle:@"Attachment"];
+    [[self window] setDelegate:self];
+    [[self window] setMinSize:NSMakeSize(250.0f, 100.0f)];
+    attachmentTemplateView = [[self window] contentView];
+
+    progressIndicator = [[NSProgressIndicator alloc] initWithFrame:NSMakeRect(224.0f, 119.0f, 32.0f, 32.0f)];
+    [progressIndicator setStyle:NSProgressIndicatorSpinningStyle];
+    [progressIndicator setIndeterminate:YES];
+    [progressIndicator setAutoresizingMask:NSViewMinXMargin | NSViewMaxXMargin | NSViewMinYMargin | NSViewMaxYMargin];
+    [attachmentTemplateView addSubview:progressIndicator];
     [progressIndicator startAnimation:self];
-    [viewedAttachment loadFullData];
-    
+
     contextMenu = [[NSMenu alloc] init];
     [contextMenu addItemWithTitle:@"Save Image" action:@selector(saveAttachment) keyEquivalent:@""];
-    
-    // Implement this method to handle any initialization after your window controller's window has been loaded from its nib file.
+    return self;
+}
+
+-(id)initWithWindowNibName:(NSString *)windowNibName {
+    return [self init];
 }
 
 -(void)setDelegate:(id<DLAttachmentWindowDelegate>)inDelegate {
@@ -36,6 +56,7 @@
     [a retain];
     viewedAttachment = a;
     [viewedAttachment setViewerDelegate:self];
+    [viewedAttachment loadFullData];
     NSRect windowFrame = self.window.frame;
     windowFrame.size.width = [viewedAttachment scaledWidth] * 2;
     windowFrame.size.height = [viewedAttachment scaledHeight] * 2;
@@ -85,6 +106,8 @@
     [eventHandlerView release];
     [viewedAttachment setViewerDelegate:nil];
     [viewedAttachment release];
+    [progressIndicator release];
+    [contextMenu release];
     [super dealloc];
 }
 

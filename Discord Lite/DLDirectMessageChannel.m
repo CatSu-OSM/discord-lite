@@ -23,6 +23,12 @@
 
 -(void)updateWithDict:(NSDictionary *)d {
     [super updateWithDict:d];
+    [iconID release];
+    iconID = nil;
+    id icon = [d objectForKey:@"icon"];
+    if ([icon isKindOfClass:[NSString class]] && [icon length]) {
+        iconID = [icon retain];
+    }
     NSMutableArray *rec = [[NSMutableArray alloc] init];
     NSEnumerator *e = [[d objectForKey:@"recipients"] objectEnumerator];
     NSDictionary *recipientData;
@@ -32,15 +38,20 @@
         [rec addObject:user];
         [user release];
     }
+    [recipients release];
     recipients = rec;
     [self setUpdateTimestamp];
     
+    [imageData release];
+    imageData = nil;
     if (recipients.count == 1) {
-        imageData = [[recipients objectAtIndex:0] avatarImageData];
+        imageData = [[[recipients objectAtIndex:0] avatarImageData] retain];
     } else if (recipients.count > 1) {
         imageData = [[NSData alloc] initWithContentsOfFile:[[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:@"discord_group.png"]];
     }
     
+    [subImageData release];
+    subImageData = nil;
     if (recipients.count > 1) {
         subImageData = [[NSData alloc] initWithContentsOfFile:[[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:@"f5k.png"]];
     } else if (recipients.count == 1) {
@@ -135,16 +146,26 @@
 }
 
 -(void)loadAvatarImageData {
-    NSEnumerator *e = [recipients objectEnumerator];
-    DLUser *user;
-    while (user = [e nextObject]) {
-        [user loadAvatarData];
+    if (recipients.count > 1) {
+        if (!iconID || ![iconID length] || iconReq) return;
+        iconReq = [[AsyncHTTPGetRequest alloc] init];
+        [iconReq setDelegate:self];
+        [iconReq setUrl:[@GroupDMIconCDNRoot stringByAppendingString:[NSString stringWithFormat:@"/%@/%@.png?size=128", [self channelID], iconID]]];
+        [iconReq setCached:YES];
+        [iconReq start];
+    } else {
+        NSEnumerator *e = [recipients objectEnumerator];
+        DLUser *user;
+        while (user = [e nextObject]) [user loadAvatarData];
     }
 }
 
 -(void)dealloc {
     [recipients release];
     [lastUpdateTimestamp release];
+    [iconID release];
+    [iconReq setDelegate:nil];
+    [iconReq release];
     [super dealloc];
 }
 
@@ -152,8 +173,21 @@
 
 -(void)user:(DLUser *)u avatarDidUpdateWithData:(NSData *)data {
     if (recipients.count == 1) {
-        imageData = data;
-        [delegate channel:self imageDidUpdateWithData:data];
+        [imageData release];
+        imageData = [data retain];
+        if ([delegate respondsToSelector:@selector(channel:imageDidUpdateWithData:)]) [delegate channel:self imageDidUpdateWithData:data];
+    }
+}
+
+-(void)requestDidFinishLoading:(AsyncHTTPRequest *)request {
+    if (request == iconReq) {
+        if ([request result] == HTTPResultOK) {
+            [imageData release];
+            imageData = [[request responseData] retain];
+            if ([delegate respondsToSelector:@selector(channel:imageDidUpdateWithData:)]) [delegate channel:self imageDidUpdateWithData:imageData];
+        }
+        [request release];
+        iconReq = nil;
     }
 }
 

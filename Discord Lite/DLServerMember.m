@@ -17,8 +17,11 @@
 
 -(id)initWithDict:(NSDictionary *)d {
     self = [self init];
-    user = [[DLUser alloc] initWithDict:[d objectForKey:@"user"]];
+    if ([d objectForKey:@"user"] && ![[d objectForKey:@"user"] isKindOfClass:[NSNull class]]) {
+        user = [[DLUser alloc] initWithDict:[d objectForKey:@"user"]];
+    }
     roles = [[d objectForKey:@"roles"] retain];
+    nick = [[d objectForKey:@"nick"] retain];
     return self;
 }
 
@@ -27,6 +30,22 @@
 }
 -(NSArray *)roles {
     return roles;
+}
+-(NSString *)nick {
+    if (!nick || [nick isKindOfClass:[NSNull class]] || [nick isEqualToString:@""]) {
+        return nil;
+    }
+    return nick;
+}
+-(NSString *)displayNameForUser:(DLUser *)u {
+    NSString *displayName = [self nick];
+    if (displayName) {
+        return displayName;
+    }
+    if (user) {
+        return [user globalName];
+    }
+    return [u globalName];
 }
 
 -(void)setUser:(DLUser *)u {
@@ -37,6 +56,8 @@
 
 -(void)dealloc {
     [user release];
+    [roles release];
+    [nick release];
     [super dealloc];
 }
 

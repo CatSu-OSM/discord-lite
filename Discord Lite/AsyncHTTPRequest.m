@@ -122,7 +122,11 @@ size_t writeFileData(char *data, size_t size, size_t nmemb, void *ptr) {
 }
 
 -(void)setDelegate:(id <AsyncHTTPRequestDelegate>)inDelegate {
-    delegate = inDelegate;
+    if (delegate == inDelegate) {
+        return;
+    }
+    [delegate release];
+    delegate = [inDelegate retain];
 }
 -(void)setIdentifier:(int)inIdentifier {
     identifier = inIdentifier;
@@ -153,7 +157,12 @@ size_t writeFileData(char *data, size_t size, size_t nmemb, void *ptr) {
             [[HTTPCache sharedInstance] setCachedData:responseData forURL:url];
         }
     }
-    [delegate requestDidFinishLoading:self];
+    id <AsyncHTTPRequestDelegate> finishedDelegate = [delegate retain];
+    [self setDelegate:nil];
+    if (finishedDelegate) {
+        [finishedDelegate requestDidFinishLoading:self];
+    }
+    [finishedDelegate release];
     curl_easy_cleanup(curlRequestHandle);
     curlRequestHandle = nil;
     curl_slist_free_all(rootHeader);
@@ -179,6 +188,7 @@ size_t writeFileData(char *data, size_t size, size_t nmemb, void *ptr) {
 
 
 -(void)dealloc {
+    [delegate release];
     [url release];
     [responseData release];
     [super dealloc];

@@ -51,6 +51,7 @@ typedef enum {
 -(void)didLogoutSuccessfully;
 -(void)userDidStartTypingInSelectedChannel:(DLUser *)u;
 -(void)members:(NSArray *)members didUpdateForServer:(DLServer *)s;
+-(void)presencesDidUpdateForServer:(DLServer *)s;
 @end
 
 @interface DLController : NSObject <AsyncHTTPRequestDelegate, DLWSControllerDelegate> {
@@ -64,6 +65,8 @@ typedef enum {
     DLChannel *selectedChannel;
     DLUser *myUser;
     DLUserSettings *myUserSettings;
+    NSString *currentUserStatus;
+    NSDictionary *currentUserActivity;
     NSMutableDictionary *loadedServers;
     NSMutableArray *serverOrder;
     NSMutableDictionary *loadedChannels;
@@ -74,6 +77,7 @@ typedef enum {
 -(DLServer *)selectedServer;
 -(DLChannel *)selectedChannel;
 
+-(void)setSelectedServer:(DLServer *)s;
 -(void)setSelectedChannel:(DLChannel *)c;
 
 -(void)setLoginDelegate:(id <DLLoginDelegate>)inLoginDelegate;
@@ -86,6 +90,7 @@ typedef enum {
 
 -(void)loadUserDefaults;
 -(BOOL)isLoggedIn;
+-(NSDictionary *)requestHeaders;
 -(void)loginWithEmail:(NSString *)email andPassword:(NSString *)password;
 -(void)loginWithTwoFactorAuthCode:(NSString *)twoFactorCode;
 -(void)loadMessagesForChannel:(DLChannel *)c beforeMessage:(DLMessage *)m quantity:(NSInteger)numMsgs;
@@ -107,6 +112,8 @@ typedef enum {
 -(NSString *)authFingerprint;
 
 -(void)queryServer:(DLServer *)s forMembersContainingUsername:(NSString *)username;
+-(void)requestMembersForSelectedChannelStartingAt:(NSInteger)start limit:(NSInteger)limit;
+-(BOOL)requestMembersForServer:(DLServer *)server startingAt:(NSInteger)start limit:(NSInteger)limit;
 
 
 -(DLServer *)myServerItem;

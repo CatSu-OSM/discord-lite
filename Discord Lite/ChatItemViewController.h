@@ -12,6 +12,8 @@
 #import "DLTextParser.h"
 #import "NSTextView+Menu.h"
 #import "DLController.h"
+#import "DLUserCardWindowController.h"
+#import "NSView+Events.h"
 
 @class ChatItemViewController;
 
@@ -24,6 +26,7 @@
 -(void)chatView:(ChatItemViewController *)chatView didEndEditingWithCommit:(BOOL)didCommit;
 -(void)chatViewMessageShouldBeDeleted:(ChatItemViewController *)chatView;
 -(void)chatViewMessageWasDeleted:(ChatItemViewController *)chatView;
+-(BOOL)chatView:(ChatItemViewController *)chatView didClickDiscordChannelLink:(NSString *)urlString;
 @end
 
 @interface ChatItemViewController : ViewController <DLUserDelegate, NSViewEventDelegate, NSTextViewMenuDelegate, DLMessageDelegate> {
@@ -33,12 +36,20 @@
     IBOutlet NSTextView_Menu *chatTextView;
     CGFloat baseViewHeight;
     IBOutlet NSTextField *usernameTextField;
+    NSView_BGColor *nameplateView;
+    NSImageView *nameplateImageView;
+    NSTextField *nameplateTextField;
     IBOutlet NSImageView *avatarImageView;
+    NSImageView *avatarDecorationImageView;
+    NSView_Events *avatarEventView;
+    BOOL decorationLoadScheduled;
+    BOOL nameplateBadgeLoadScheduled;
     IBOutlet NSTextField *timestampTextField;
     NSArray *attachmentViews;
     IBOutlet NSView *referencedMessageView;
     IBOutlet NSTextField *referencedMessageTextField;
     IBOutlet NSImageView *referencedMessageAvatarImageView;
+    NSImageView *referencedMessageAvatarDecorationImageView;
     BOOL viewHasLoaded;
     NSMenu *contextMenu;
     NSMenuItem *editItem;
@@ -58,5 +69,6 @@
 -(void)endEditingContent;
 -(BOOL)isBeingEdited;
 -(void)becomeWindowFirstResponderForEditing:(NSWindow *)window;
+-(void)showUserCardForEvent:(NSEvent *)event;
 
 @end

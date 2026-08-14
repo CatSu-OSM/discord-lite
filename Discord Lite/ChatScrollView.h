@@ -13,21 +13,31 @@
 @protocol ChatScrollViewDelegate <NSObject>
 @optional
 -(void)updatePendingAttachmentsWithFilePaths:(NSArray *)paths;
+-(void)chatScrollViewDidFinishAppendingContent;
+-(void)chatScrollViewDidReachHistoryEdge;
 @end
 
 @interface ChatScrollView : NSScrollView {
     NSMutableArray *content;
     id<ChatScrollViewDelegate> delegate;
+    BOOL keepsNewestMessageVisible;
+    NSTimer *latestMessageScrollTimer;
+    NSTimeInterval latestMessageScrollStartTime;
+    CGFloat latestMessageScrollStartY;
+    CGFloat latestMessageScrollTargetY;
+    BOOL scrollWheelEnabled;
 }
 
 -(NSArray *)content;
 
 -(void)setDelegate:(id<ChatScrollViewDelegate>)inDelegate;
+-(void)setScrollWheelEnabled:(BOOL)enabled;
 -(void)setContent:(NSArray *)inContent;
 -(void)appendContent:(NSArray *)inContent;
 -(void)prependViewController:(ChatItemViewController *)vc;
 -(void)removeViewController:(ChatItemViewController *)vc;
 -(void)screenResize;
+-(void)scrollToLatestMessageAnimated;
 -(void)endAllChatContentEditing;
 
 @end

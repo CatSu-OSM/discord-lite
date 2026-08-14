@@ -9,6 +9,8 @@
 #import <Foundation/Foundation.h>
 #import "DLMessage.h"
 
+extern NSString * const DLEmojiImageDidUpdateNotification;
+
 @interface DLTextParser : NSObject
 
 +(NSColor *)DEFAULT_TEXT_COLOR;
@@ -16,5 +18,8 @@
 +(NSColor *)DEFAULT_LINK_TEXT_COLOR;
 
 +(NSAttributedString *)attributedContentStringForMessage:(DLMessage *)m;
++(NSArray *)basicEmojiCharacters;
++(NSString *)unicodeStringForCodePoint:(unsigned long)codePoint;
++(NSAttributedString *)attributedStringByRenderingBasicEmojiInString:(NSString *)s fontSize:(CGFloat)fontSize;
 
 @end

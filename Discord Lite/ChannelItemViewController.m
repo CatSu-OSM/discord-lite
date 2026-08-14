@@ -7,8 +7,107 @@
 //
 
 #import "ChannelItemViewController.h"
+#import "RoundedTextFieldCell.h"
+
+static NSImage *DLVoiceChannelImage(void) {
+    static NSImage *voiceImage = nil;
+    if (!voiceImage) {
+        voiceImage = [[NSImage alloc] initWithSize:NSMakeSize(16, 16)];
+        [voiceImage lockFocus];
+        [[NSColor colorWithCalibratedRed:131.0/255.0 green:134.0/255.0 blue:139.0/255.0 alpha:1.0] set];
+
+        NSBezierPath *speaker = [NSBezierPath bezierPath];
+        [speaker moveToPoint:NSMakePoint(1, 6)];
+        [speaker lineToPoint:NSMakePoint(4, 6)];
+        [speaker lineToPoint:NSMakePoint(8, 2)];
+        [speaker lineToPoint:NSMakePoint(8, 14)];
+        [speaker lineToPoint:NSMakePoint(4, 10)];
+        [speaker lineToPoint:NSMakePoint(1, 10)];
+        [speaker closePath];
+        [speaker fill];
+
+        NSBezierPath *soundWave = [NSBezierPath bezierPath];
+        [soundWave setLineWidth:1.5];
+        [soundWave appendBezierPathWithArcWithCenter:NSMakePoint(8, 8) radius:4 startAngle:-55 endAngle:55 clockwise:NO];
+        [soundWave stroke];
+        [voiceImage unlockFocus];
+    }
+    return voiceImage;
+}
 
 @implementation ChannelItemViewController
+
+-(id)init {
+    self = [super init];
+    if (self) {
+        defaultView = [[NSView_BGColor alloc] initWithFrame:NSMakeRect(0, 0, 240, 24)];
+        [defaultView setAutoresizingMask:NSViewWidthSizable | NSViewMinYMargin];
+        view = defaultView;
+
+        childChannelLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(42, 4, 194, 17)];
+        [childChannelLabel setAutoresizingMask:NSViewWidthSizable | NSViewMinYMargin | NSViewMaxYMargin];
+        [childChannelLabel setBezeled:NO];
+        [childChannelLabel setDrawsBackground:NO];
+        [childChannelLabel setEditable:NO];
+        [childChannelLabel setSelectable:NO];
+        [[childChannelLabel cell] setLineBreakMode:NSLineBreakByTruncatingTail];
+        [childChannelLabel setTextColor:[NSColor colorWithCalibratedRed:131.0/255.0 green:134.0/255.0 blue:139.0/255.0 alpha:1.0]];
+        [defaultView addSubview:childChannelLabel];
+        [childChannelLabel release];
+
+        statusIndicatorView = [[ServerStatusIndicatorView alloc] initWithFrame:NSMakeRect(0, 0, 12, 24)];
+        [statusIndicatorView setAutoresizingMask:NSViewMaxXMargin | NSViewMinYMargin];
+        [defaultView addSubview:statusIndicatorView];
+        [statusIndicatorView release];
+
+        channelImageView = [[NSImageView alloc] initWithFrame:NSMakeRect(15, 2, 21, 20)];
+        [channelImageView setAutoresizingMask:NSViewMaxXMargin | NSViewMinYMargin];
+        [channelImageView setImageScaling:NSImageScaleProportionallyDown];
+        [channelImageView setImage:[NSImage imageNamed:@"uI4"]];
+        [defaultView addSubview:channelImageView];
+
+        mentionBadgeLabel = [[BadgeTextField alloc] initWithFrame:NSMakeRect(29, 1, 11, 11)];
+        RoundedTextFieldCell *mentionCell = [[RoundedTextFieldCell alloc] initTextCell:@"1"];
+        [mentionCell setFont:[NSFont systemFontOfSize:8]];
+        [mentionCell setTextColor:[NSColor alternateSelectedControlTextColor]];
+        [mentionCell setBackgroundColor:[NSColor colorWithCalibratedRed:0.8827063519 green:0.0 blue:0.01040592166 alpha:1.0]];
+        [mentionBadgeLabel setCell:mentionCell];
+        [mentionCell release];
+        [mentionBadgeLabel setAlignment:NSCenterTextAlignment];
+        [mentionBadgeLabel setDrawsBackground:YES];
+        [mentionBadgeLabel setHidden:YES];
+        [defaultView addSubview:mentionBadgeLabel];
+        [mentionBadgeLabel release];
+
+        headerView = [[NSView_BGColor alloc] initWithFrame:NSMakeRect(0, 0, 220, 24)];
+        [headerView setAutoresizingMask:NSViewWidthSizable | NSViewMinYMargin];
+        parentChannelLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(4, 4, 212, 17)];
+        [parentChannelLabel setAutoresizingMask:NSViewWidthSizable | NSViewMinYMargin | NSViewMaxYMargin];
+        [parentChannelLabel setBezeled:NO];
+        [parentChannelLabel setDrawsBackground:NO];
+        [parentChannelLabel setEditable:NO];
+        [parentChannelLabel setSelectable:NO];
+        [[parentChannelLabel cell] setLineBreakMode:NSLineBreakByTruncatingTail];
+        [parentChannelLabel setFont:[NSFont boldSystemFontOfSize:[NSFont systemFontSize]]];
+        [parentChannelLabel setTextColor:[NSColor colorWithCalibratedRed:131.0/255.0 green:134.0/255.0 blue:139.0/255.0 alpha:1.0]];
+        [headerView addSubview:parentChannelLabel];
+        [parentChannelLabel release];
+
+        dmView = [[NSView_BGColor alloc] initWithFrame:NSMakeRect(0, 0, 163, 96)];
+        [dmView setAutoresizingMask:NSViewMaxXMargin | NSViewMinYMargin];
+
+        defaultTextColor = [[childChannelLabel textColor] retain];
+        [defaultView setDelegate:self];
+        [dmView setDelegate:self];
+        isSelected = NO;
+        [defaultView setNeedsDisplay:YES];
+    }
+    return self;
+}
+
+-(id)initWithNibNamed:(NSString *)inNibName bundle:(NSBundle *)bundle {
+    return [self init];
+}
 
 -(void)awakeFromNib {
     defaultTextColor = [[childChannelLabel textColor] retain];
@@ -31,7 +130,13 @@
         [self setType:ChannelItemViewTypeParent];
         [parentChannelLabel setStringValue:[(DLServerChannel *)representedObject name]];
     } else {
-        [childChannelLabel setStringValue:[(DLServerChannel *)representedObject name]];
+        NSString *channelName = [(DLServerChannel *)representedObject name];
+        [childChannelLabel setStringValue:channelName ? channelName : @""];
+        if ([representedObject type] == ChannelTypeVoice) {
+            [channelImageView setImage:DLVoiceChannelImage()];
+        } else {
+            [channelImageView setImage:[NSImage imageNamed:@"uI4"]];
+        }
     }
     [self updateMentionsLabel];
     [self updateUnreadStatus];
@@ -95,10 +200,14 @@
 -(void)dealloc {
     [representedObject setDelegate:nil];
     [representedObject release];
-    [view setDelegate:nil];
-    [view release];
+    [defaultTextColor release];
+    [defaultView setDelegate:nil];
+    [defaultView release];
+    [headerView setDelegate:nil];
+    [headerView release];
     [dmView setDelegate:nil];
     [dmView release];
+    [channelImageView release];
     [super dealloc];
 }
 

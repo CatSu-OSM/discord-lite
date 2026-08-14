@@ -26,13 +26,17 @@
 }
 
 -(void)updateWithDict:(NSDictionary *)d {
+    [channelID release];
     channelID = [[d objectForKey:@"id"] retain];
+    [name release];
     name = [[d objectForKey:@"name"] retain];
     type = [[d objectForKey:@"type"] intValue];
     
-    if ([d objectForKey:@"last_message_id"] != [NSNull null]) {
+    id lastMessageID = [d objectForKey:@"last_message_id"];
+    if (lastMessageID && lastMessageID != [NSNull null]) {
+        [lastMessage release];
         lastMessage = [[DLMessage alloc] init];
-        [lastMessage setMessageID:[d objectForKey:@"last_message_id"]];
+        [lastMessage setMessageID:lastMessageID];
         [lastMessage setChannelID:channelID];
     }
 }
@@ -77,6 +81,9 @@
 -(DLMessage *)lastMessage {
     return lastMessage;
 }
+-(BOOL)isThread {
+    return (type == ChannelTypeAnnouncementThread || type == ChannelTypePublicThread || type == ChannelTypePrivateThread);
+}
 
 -(void)setServerID:(NSString *)inServerID {
     //Doesn't exist
@@ -105,5 +112,13 @@
 }
 - (NSComparisonResult)compare:(DLChannel *)o {
     return NSOrderedSame;
+}
+-(void)dealloc {
+    [channelID release];
+    [name release];
+    [imageData release];
+    [subImageData release];
+    [lastMessage release];
+    [super dealloc];
 }
 @end
