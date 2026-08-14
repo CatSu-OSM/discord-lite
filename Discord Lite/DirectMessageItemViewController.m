@@ -269,7 +269,9 @@ static NSUInteger pendingAvatarLoadCount = 0;
 }
 
 -(void)emojiImageDidUpdate:(NSNotification *)note {
-    [self setUsernameText:[representedObject name]];
+    if (!friendsItem && !separatorItem) {
+        [self setUsernameText:[representedObject name]];
+    }
     [self updateNameplate];
 }
 
@@ -319,7 +321,21 @@ static NSUInteger pendingAvatarLoadCount = 0;
 
 -(BOOL)isFriendsItem { return friendsItem; }
 
+-(void)setAsSeparatorItem {
+    separatorItem = YES;
+    [avatarImageView setHidden:YES];
+    [usernameTextField setHidden:YES];
+    [notificationBadgeLabel setHidden:YES];
+    [view setFrameSize:NSMakeSize([view frame].size.width, 13.0f)];
+    NSBox *divider = [[[NSBox alloc] initWithFrame:NSMakeRect(10.0f, 6.0f, [view frame].size.width - 20.0f, 1.0f)] autorelease];
+    [divider setBoxType:NSBoxSeparator];
+    [divider setTitlePosition:NSNoTitle];
+    [divider setAutoresizingMask:NSViewWidthSizable];
+    [view addSubview:divider];
+}
+
 -(void)mouseWasDepressedWithEvent:(NSEvent *)event {
+    if (separatorItem) return;
     [delegate dmChannelItemWasSelected:self];
     [self setSelected:YES];
 }

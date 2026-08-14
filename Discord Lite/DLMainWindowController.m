@@ -544,7 +544,7 @@ const CGFloat MY_USER_AVATAR_RADIUS = 18.0f;
     NSArray *users = [[DLController sharedInstance] relationshipsForTab:selected];
     CGFloat height = MAX([[friendsScrollView contentView] bounds].size.height, ([users count] * 62.0f) + 12.0f);
     [friendsDocumentView setFrameSize:NSMakeSize([[friendsScrollView contentView] bounds].size.width, height)];
-    CGFloat y = height - 56.0f; NSEnumerator *e = [users objectEnumerator]; DLUser *user;
+    CGFloat y = height - 56.0f; NSEnumerator *e = [users objectEnumerator]; DLUser *user; NSUInteger userIndex = 0;
     while (user = [e nextObject]) {
         NSView_BGColor *row = [[[NSView_BGColor alloc] initWithFrame:NSMakeRect(18.0f, y, [friendsDocumentView frame].size.width - 36.0f, 56.0f)] autorelease];
         [row setAutoresizingMask:NSViewWidthSizable | NSViewMinYMargin];
@@ -556,7 +556,14 @@ const CGFloat MY_USER_AVATAR_RADIUS = 18.0f;
         NSTextField *detail = [[[NSTextField alloc] initWithFrame:NSMakeRect(58, 10, [row frame].size.width - 70, 16)] autorelease];
         [detail setEditable:NO]; [detail setBordered:NO]; [detail setDrawsBackground:NO]; [detail setFont:[NSFont systemFontOfSize:12]]; [detail setTextColor:[NSColor colorWithCalibratedWhite:0.62f alpha:1.0f]];
         if ([user activityText] && [[user activityText] length]) [detail setStringValue:[user activityText]]; else if (selected == 2) [detail setStringValue:@"Pending friend request"]; else if (selected == 3) [detail setStringValue:@"Blocked"]; else [detail setStringValue:[NSString stringWithFormat:@"@%@", [user username]]];
-        [row addSubview:detail]; [friendsDocumentView addSubview:row]; [friendRows addObject:row]; y -= 62.0f;
+        [row addSubview:detail];
+        if (userIndex + 1 < [users count]) {
+            NSView_BGColor *divider = [[[NSView_BGColor alloc] initWithFrame:NSMakeRect(58.0f, 0.0f, [row frame].size.width - 64.0f, 1.0f)] autorelease];
+            [divider setBackgroundColor:[NSColor colorWithCalibratedWhite:0.16f alpha:1.0f]];
+            [divider setAutoresizingMask:NSViewWidthSizable | NSViewMinYMargin];
+            [row addSubview:divider];
+        }
+        [friendsDocumentView addSubview:row]; [friendRows addObject:row]; y -= 62.0f; userIndex++;
     }
     NSArray *titles = [NSArray arrayWithObjects:@"Online", @"All", @"Pending", @"Blocked", nil];
     [friendsStatusLabel setStringValue:[NSString stringWithFormat:@"%@ — %lu", [titles objectAtIndex:selected], (unsigned long)[users count]]];
@@ -568,7 +575,8 @@ const CGFloat MY_USER_AVATAR_RADIUS = 18.0f;
     for (i = 0; i < [titles count]; i++) { NSButton *tab = [[[NSButton alloc] initWithFrame:NSMakeRect(x, 8, 70, 25)] autorelease]; [tab setTitle:[titles objectAtIndex:i]]; [tab setBezelStyle:NSShadowlessSquareBezelStyle]; [tab setTarget:self]; [tab setAction:@selector(selectFriendsTab:)]; [tab setHidden:YES]; [chatViewHeader addSubview:tab]; [friendsTabs addObject:tab]; x += 70.0f; }
     [[friendsTabs objectAtIndex:0] setState:NSOnState];
     NSRect frame = NSUnionRect([chatScrollView frame], [messageEntryContainerView frame]);
-    NSColor *friendsBackground = [NSColor colorWithCalibratedRed:49.0f/255.0f green:52.0f/255.0f blue:58.0f/255.0f alpha:1.0f];
+    // Keep the Friends pane identical to the chat header and chat scroll area.
+    NSColor *friendsBackground = [NSColor colorWithCalibratedRed:37.0f/255.0f green:38.0f/255.0f blue:42.0f/255.0f alpha:1.0f];
     friendsContentView = [[NSView_BGColor alloc] initWithFrame:frame]; [friendsContentView setBackgroundColor:friendsBackground]; [friendsContentView setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable]; [friendsContentView setHidden:YES]; [[chatScrollView superview] addSubview:friendsContentView];
     friendsStatusLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(24, frame.size.height - 43, 260, 18)]; [friendsStatusLabel setEditable:NO]; [friendsStatusLabel setBordered:NO]; [friendsStatusLabel setDrawsBackground:NO]; [friendsStatusLabel setTextColor:[NSColor whiteColor]]; [friendsContentView addSubview:friendsStatusLabel];
     friendsScrollView = [[NSScrollView alloc] initWithFrame:NSMakeRect(0, 0, frame.size.width, frame.size.height - 56)]; [friendsScrollView setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable]; [friendsScrollView setHasVerticalScroller:YES]; [friendsScrollView setAutohidesScrollers:YES]; [friendsScrollView setBorderType:NSNoBorder]; [friendsScrollView setDrawsBackground:YES]; [friendsScrollView setBackgroundColor:friendsBackground]; [[friendsScrollView contentView] setDrawsBackground:YES]; [[friendsScrollView contentView] setBackgroundColor:friendsBackground];
@@ -1522,6 +1530,9 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
         DirectMessageItemViewController *friends = [[DirectMessageItemViewController alloc] initWithNibNamed:@"DirectMessageItemViewController" bundle:nil];
         [friends setDelegate:self]; [friends setAsFriendsItem];
         [views addObject:friends]; [friends release];
+        DirectMessageItemViewController *divider = [[DirectMessageItemViewController alloc] initWithNibNamed:@"DirectMessageItemViewController" bundle:nil];
+        [divider setDelegate:self]; [divider setAsSeparatorItem];
+        [views addObject:divider]; [divider release];
         NSEnumerator *e = [channels objectEnumerator];
         DLDirectMessageChannel *item;
         while (item = [e nextObject]) {

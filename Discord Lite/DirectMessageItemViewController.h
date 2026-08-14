@@ -32,6 +32,7 @@
     id<DMChannelItemDelegate> delegate;
     IBOutlet BadgeTextField *notificationBadgeLabel;
     BOOL friendsItem;
+    BOOL separatorItem;
 }
 
 -(DLDirectMessageChannel *)representedObject;
@@ -42,5 +43,6 @@
 -(void)setDelegate:(id<DMChannelItemDelegate>)inDelegate;
 -(void)setAsFriendsItem;
 -(BOOL)isFriendsItem;
+-(void)setAsSeparatorItem;
 
 @end
