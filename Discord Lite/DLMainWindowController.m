@@ -535,6 +535,13 @@ const CGFloat MY_USER_AVATAR_RADIUS = 18.0f;
     [self reloadFriendsList];
 }
 
+-(void)scrollFriendsListToTop {
+    NSClipView *clipView = [friendsScrollView contentView];
+    CGFloat topOrigin = MAX(0.0f, NSMaxY([friendsDocumentView bounds]) - NSHeight([clipView bounds]));
+    [clipView scrollToPoint:NSMakePoint(NSMinX([clipView bounds]), topOrigin)];
+    [friendsScrollView reflectScrolledClipView:clipView];
+}
+
 -(void)reloadFriendsList {
     NSEnumerator *oldRows = [friendRows objectEnumerator]; NSView *oldRow;
     while (oldRow = [oldRows nextObject]) [oldRow removeFromSuperview];
@@ -567,6 +574,7 @@ const CGFloat MY_USER_AVATAR_RADIUS = 18.0f;
     }
     NSArray *titles = [NSArray arrayWithObjects:@"Online", @"All", @"Pending", @"Blocked", nil];
     [friendsStatusLabel setStringValue:[NSString stringWithFormat:@"%@ — %lu", [titles objectAtIndex:selected], (unsigned long)[users count]]];
+    [self scrollFriendsListToTop];
 }
 
 -(void)buildFriendsList {
@@ -580,6 +588,7 @@ const CGFloat MY_USER_AVATAR_RADIUS = 18.0f;
     friendsContentView = [[NSView_BGColor alloc] initWithFrame:frame]; [friendsContentView setBackgroundColor:friendsBackground]; [friendsContentView setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable]; [friendsContentView setHidden:YES]; [[chatScrollView superview] addSubview:friendsContentView];
     friendsStatusLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(24, frame.size.height - 43, 260, 18)]; [friendsStatusLabel setEditable:NO]; [friendsStatusLabel setBordered:NO]; [friendsStatusLabel setDrawsBackground:NO]; [friendsStatusLabel setTextColor:[NSColor whiteColor]]; [friendsContentView addSubview:friendsStatusLabel];
     friendsScrollView = [[NSScrollView alloc] initWithFrame:NSMakeRect(0, 0, frame.size.width, frame.size.height - 56)]; [friendsScrollView setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable]; [friendsScrollView setHasVerticalScroller:YES]; [friendsScrollView setAutohidesScrollers:YES]; [friendsScrollView setBorderType:NSNoBorder]; [friendsScrollView setDrawsBackground:YES]; [friendsScrollView setBackgroundColor:friendsBackground]; [[friendsScrollView contentView] setDrawsBackground:YES]; [[friendsScrollView contentView] setBackgroundColor:friendsBackground];
+    NSScroller_BGColor *friendsScroller = [[NSScroller_BGColor alloc] init]; [friendsScroller setBackgroundColor:friendsBackground]; [friendsScrollView setVerticalScroller:friendsScroller]; [friendsScroller release];
     friendsDocumentView = [[NSView_BGColor alloc] initWithFrame:[[friendsScrollView contentView] bounds]]; [(NSView_BGColor *)friendsDocumentView setBackgroundColor:friendsBackground]; [friendsScrollView setDocumentView:friendsDocumentView]; [friendsContentView addSubview:friendsScrollView];
     [self layoutFriendsList];
 }
