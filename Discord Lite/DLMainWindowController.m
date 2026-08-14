@@ -77,6 +77,19 @@
 -(DLServerChannel *)thread;
 @end
 
+@interface DLFriendRowButton : NSButton {
+    DLUser *friendUser;
+}
+-(void)setFriendUser:(DLUser *)user;
+-(DLUser *)friendUser;
+@end
+
+@implementation DLFriendRowButton
+-(void)setFriendUser:(DLUser *)user { [friendUser release]; friendUser = [user retain]; }
+-(DLUser *)friendUser { return friendUser; }
+-(void)dealloc { [friendUser release]; [super dealloc]; }
+@end
+
 @implementation DLThreadPickerButton
 -(void)setThread:(DLServerChannel *)inThread {
     [thread release];
@@ -542,6 +555,25 @@ const CGFloat MY_USER_AVATAR_RADIUS = 18.0f;
     [friendsScrollView reflectScrolledClipView:clipView];
 }
 
+-(void)friendRowWasSelected:(DLFriendRowButton *)button {
+    DLUser *user = [button friendUser];
+    NSEnumerator *e = [[[DLController sharedInstance] directMessageChannels] objectEnumerator];
+    DLDirectMessageChannel *channel;
+    while (channel = [e nextObject]) {
+        if ([channel recipientWithUserID:[user userID]]) {
+            [self hideFriendsList];
+            lastMessage = nil;
+            [attachButton setEnabled:YES];
+            [messageEntryTextView setEditable:YES];
+            [chatScrollView registerForDraggedTypes:[NSArray arrayWithObjects:NSFilenamesPboardType, nil]];
+            [self resetUI];
+            [[DLController sharedInstance] loadMessagesForChannel:channel beforeMessage:nil quantity:25];
+            [self showMemberListForSelectedServer];
+            return;
+        }
+    }
+}
+
 -(void)reloadFriendsList {
     NSEnumerator *oldRows = [friendRows objectEnumerator]; NSView *oldRow;
     while (oldRow = [oldRows nextObject]) [oldRow removeFromSuperview];
@@ -569,6 +601,17 @@ const CGFloat MY_USER_AVATAR_RADIUS = 18.0f;
             [divider setBackgroundColor:[NSColor colorWithCalibratedWhite:0.16f alpha:1.0f]];
             [divider setAutoresizingMask:NSViewWidthSizable | NSViewMinYMargin];
             [row addSubview:divider];
+        }
+        if (selected < 2) {
+            DLFriendRowButton *openDMButton = [[[DLFriendRowButton alloc] initWithFrame:[row bounds]] autorelease];
+            [openDMButton setFriendUser:user];
+            [openDMButton setTitle:@""];
+            [openDMButton setBordered:NO];
+            [openDMButton setTransparent:YES];
+            [openDMButton setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
+            [openDMButton setTarget:self];
+            [openDMButton setAction:@selector(friendRowWasSelected:)];
+            [row addSubview:openDMButton];
         }
         [friendsDocumentView addSubview:row]; [friendRows addObject:row]; y -= 62.0f; userIndex++;
     }
