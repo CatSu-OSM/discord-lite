@@ -8,6 +8,11 @@
 
 #import "ChatScrollView.h"
 
+@interface ChatScrollView ()
+-(void)scrollLatestMessageIntoView;
+-(CGFloat)latestMessageTargetY;
+@end
+
 @implementation ChatScrollView
 
 - (id)initWithFrame:(NSRect)frame {
@@ -37,6 +42,27 @@
 }
 -(void)setScrollWheelEnabled:(BOOL)enabled {
     scrollWheelEnabled = enabled;
+}
+-(void)scrollLatestMessageIntoView {
+    if (![content count]) {
+        return;
+    }
+    ChatItemViewController *latestItem = [content objectAtIndex:0];
+    NSView *latestView = [latestItem view];
+    if ([latestView superview]) {
+        // The document view and its clip view use different orientations.
+        // Scrolling the actual newest view lets AppKit translate that edge.
+        [latestView scrollRectToVisible:[latestView bounds]];
+    }
+}
+-(CGFloat)latestMessageTargetY {
+    NSClipView *clipView = [self contentView];
+    NSPoint originalOrigin = [clipView bounds].origin;
+    [self scrollLatestMessageIntoView];
+    CGFloat targetY = NSMinY([clipView bounds]);
+    [clipView scrollToPoint:originalOrigin];
+    [self reflectScrolledClipView:clipView];
+    return targetY;
 }
 -(void)screenResize {
     CGFloat currentHeight = 0;
@@ -69,16 +95,13 @@
     }
     [self.documentView setNeedsDisplay:YES];
     if (keepsNewestMessageVisible) {
-        NSRect documentBounds = [[self documentView] bounds];
-        [[self documentView] scrollRectToVisible:NSMakeRect(NSMinX(documentBounds), NSMinY(documentBounds), 1.0f, 1.0f)];
+        [self scrollLatestMessageIntoView];
     }
 }
 
 -(void)layoutContentAtBottom {
     [self screenResize];
-    NSView *documentView = [self documentView];
-    NSRect documentBounds = [documentView bounds];
-    [documentView scrollRectToVisible:NSMakeRect(NSMinX(documentBounds), NSMinY(documentBounds), 1.0f, 1.0f)];
+    [self scrollLatestMessageIntoView];
 }
 
 -(void)scrollToLatestMessageStep:(NSTimer *)timer {
@@ -91,22 +114,24 @@
     CGFloat remaining = 1.0f - progress;
     CGFloat easedProgress = 1.0f - (remaining * remaining * remaining);
     CGFloat y = latestMessageScrollStartY + ((latestMessageScrollTargetY - latestMessageScrollStartY) * easedProgress);
-    NSView *documentView = [self documentView];
-    NSRect documentBounds = [documentView bounds];
-    [documentView scrollRectToVisible:NSMakeRect(NSMinX(documentBounds), y, 1.0f, 1.0f)];
+    NSClipView *clipView = [self contentView];
+    [clipView scrollToPoint:NSMakePoint(NSMinX([clipView bounds]), y)];
+    [self reflectScrolledClipView:clipView];
     if (progress >= 1.0f) {
         [latestMessageScrollTimer invalidate];
         latestMessageScrollTimer = nil;
+        [self scrollLatestMessageIntoView];
     }
 }
 
 -(void)scrollToLatestMessageAnimated {
-    keepsNewestMessageVisible = YES;
+    keepsNewestMessageVisible = NO;
     [self screenResize];
+    keepsNewestMessageVisible = YES;
     [latestMessageScrollTimer invalidate];
     latestMessageScrollTimer = nil;
     latestMessageScrollStartY = NSMinY([self documentVisibleRect]);
-    latestMessageScrollTargetY = NSMinY([[self documentView] bounds]);
+    latestMessageScrollTargetY = [self latestMessageTargetY];
     CGFloat distance = latestMessageScrollStartY - latestMessageScrollTargetY;
     if (distance < 0.0f) {
         distance = -distance;
