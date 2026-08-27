@@ -729,6 +729,21 @@ const CGFloat MY_USER_AVATAR_RADIUS = 18.0f;
 
 -(void)showFriendsList { [self hideMemberList]; [self layoutFriendsList]; friendsVisible = YES; [chatHeaderLabel setStringValue:@"Friends"]; [chatScrollView setHidden:YES]; [messageEntryContainerView setHidden:YES]; NSEnumerator *e = [friendsTabs objectEnumerator]; NSButton *tab; while (tab = [e nextObject]) [tab setHidden:NO]; [self reloadFriendsList]; [friendsContentView setHidden:NO]; }
 -(void)hideFriendsList { if (!friendsVisible) return; friendsVisible = NO; [friendsContentView setHidden:YES]; [chatScrollView setHidden:NO]; [messageEntryContainerView setHidden:NO]; NSEnumerator *e = [friendsTabs objectEnumerator]; NSButton *tab; while (tab = [e nextObject]) [tab setHidden:YES]; }
+-(void)restoreDirectMessageViewAfterReload {
+    DLChannel *selectedChannel = [[DLController sharedInstance] selectedChannel];
+    BOOL shouldShowFriends = friendsVisible || !selectedChannel;
+    NSEnumerator *e = [channelViews objectEnumerator];
+    DirectMessageItemViewController *item;
+    while (item = [e nextObject]) {
+        BOOL shouldSelect = [item isFriendsItem] ? shouldShowFriends : (!shouldShowFriends && [[item representedObject] isEqual:selectedChannel]);
+        [item setSelected:shouldSelect];
+    }
+    if (shouldShowFriends) {
+        [self showFriendsList];
+    } else {
+        [self hideFriendsList];
+    }
+}
 const CGFloat MEMBER_LIST_WIDTH = 220.0f;
 const NSInteger MEMBER_LIST_PAGE_SIZE = 30;
 const NSInteger MEMBER_LIST_INITIAL_LOAD_SIZE = 30;
@@ -1602,7 +1617,7 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
         [channelViewHeader setAutoresizingMask:NSViewMinYMargin];
         [chatViewHeader setAutoresizingMask:NSViewWidthSizable | NSViewMinYMargin];
         [messageEntryContainerView setAutoresizingMask:NSViewWidthSizable | NSViewMaxYMargin];
-        [messageEntryScrollView setAutoresizingMask:NSViewWidthSizable | NSViewMinYMargin];
+        [messageEntryScrollView setAutoresizingMask:NSViewWidthSizable | NSViewMaxYMargin];
         [pendingAttachmentsScrollView setAutoresizingMask:NSViewWidthSizable | NSViewMaxYMargin];
         [tagSelectionScrollView setAutoresizingMask:NSViewWidthSizable | NSViewMaxYMargin];
         [replyToView setAutoresizingMask:NSViewWidthSizable | NSViewMaxYMargin];
@@ -1983,7 +1998,7 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
         [channelViews release];
         channelViews = views;
         isLoadingViews = NO;
-        [self performSelectorOnMainThread:@selector(showFriendsList) withObject:nil waitUntilDone:NO];
+        [self performSelectorOnMainThread:@selector(restoreDirectMessageViewAfterReload) withObject:nil waitUntilDone:NO];
     }
 
     [autoreleasepool release];
@@ -2207,7 +2222,7 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
     NSRect textFrame = [messageEntryTextView.layoutManager usedRectForTextContainer:messageEntryTextView.textContainer];
     if (textFrame.size.height <= 126) {
         NSRect scrollViewFrame = messageEntryScrollView.frame;
-        scrollViewFrame.size.height = textFrame.size.height + 8;
+        scrollViewFrame.size.height = MAX(textFrame.size.height + 8, 22.0f);
         [messageEntryScrollView setFrame:scrollViewFrame];
 
         CGFloat change = scrollViewFrame.size.height - currentMessageScrollHeight;
@@ -2513,9 +2528,6 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
     }
 }
 -(void)dmChannelItemWasSelected:(DirectMessageItemViewController *)item {
-    if ([item isFriendsItem]) { [self showFriendsList]; return; }
-    [self hideFriendsList];
-    lastMessage = nil;
     NSEnumerator *e = [channelViews objectEnumerator];
     DirectMessageItemViewController *itm;
     while (itm = [e nextObject]) {
@@ -2523,6 +2535,9 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
             [itm setSelected:NO];
         }
     }
+    if ([item isFriendsItem]) { [self showFriendsList]; return; }
+    [self hideFriendsList];
+    lastMessage = nil;
 
     [attachButton setEnabled:YES];
     [messageEntryTextView setEditable:YES];

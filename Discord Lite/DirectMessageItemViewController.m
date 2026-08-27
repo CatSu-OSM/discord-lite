@@ -347,7 +347,11 @@ static NSUInteger pendingAvatarLoadCount = 0;
         [view setBackgroundColor:[NSColor clearColor]];
         [usernameTextField setTextColor:defaultTextColor];
     }
-    [self setUsernameText:[representedObject name]];
+    if (friendsItem) {
+        [usernameTextField setStringValue:@"Friends"];
+    } else if (!separatorItem) {
+        [self setUsernameText:[representedObject name]];
+    }
     [view setNeedsDisplay:YES];
 }
 -(void)updateMentionsLabel {

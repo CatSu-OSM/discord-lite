@@ -130,7 +130,7 @@
     keepsNewestMessageVisible = YES;
     [latestMessageScrollTimer invalidate];
     latestMessageScrollTimer = nil;
-    latestMessageScrollStartY = NSMinY([self documentVisibleRect]);
+    latestMessageScrollStartY = NSMinY([[self contentView] bounds]);
     latestMessageScrollTargetY = [self latestMessageTargetY];
     CGFloat distance = latestMessageScrollStartY - latestMessageScrollTargetY;
     if (distance < 0.0f) {
