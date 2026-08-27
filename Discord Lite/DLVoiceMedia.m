@@ -75,8 +75,9 @@ static NSUInteger DLRTPHeaderLength(const unsigned char *bytes, NSUInteger lengt
     return YES;
 }
 
-- (NSData *)encryptOpus:(NSData *)opus rtpHeader:(NSData *)header error:(NSError **)error {
-    if (!transportKey || !opus || ![opus length] || DLRTPHeaderLength([header bytes], [header length], NULL) != [header length]) {
+- (NSData *)encryptPayload:(NSData *)payload clearHeader:(NSData *)header error:(NSError **)error {
+    @synchronized(self) {
+    if (!transportKey || !payload || ![payload length] || !header || ![header length]) {
         if (error) *error = [NSError errorWithDomain:DLVoiceMediaErrorDomain code:-101 userInfo:nil];
         return nil;
     }
@@ -86,9 +87,9 @@ static NSUInteger DLRTPHeaderLength(const unsigned char *bytes, NSUInteger lengt
     memcpy(nonce, &networkNonce, sizeof(networkNonce));
     NSMutableData *packet = [NSMutableData dataWithData:header];
     unsigned long long encryptedLength = 0;
-    NSMutableData *encrypted = [NSMutableData dataWithLength:[opus length] + crypto_aead_xchacha20poly1305_ietf_ABYTES];
+    NSMutableData *encrypted = [NSMutableData dataWithLength:[payload length] + crypto_aead_xchacha20poly1305_ietf_ABYTES];
     if (crypto_aead_xchacha20poly1305_ietf_encrypt([encrypted mutableBytes], &encryptedLength,
-                                                    [opus bytes], [opus length], [header bytes], [header length],
+                                                    [payload bytes], [payload length], [header bytes], [header length],
                                                     NULL, nonce, [transportKey bytes]) != 0) {
         if (error) *error = [NSError errorWithDomain:DLVoiceMediaErrorDomain code:-102 userInfo:nil];
         return nil;
@@ -97,6 +98,15 @@ static NSUInteger DLRTPHeaderLength(const unsigned char *bytes, NSUInteger lengt
     [packet appendData:encrypted];
     [packet appendBytes:nonce length:sizeof(networkNonce)];
     return packet;
+    }
+}
+
+- (NSData *)encryptOpus:(NSData *)opus rtpHeader:(NSData *)header error:(NSError **)error {
+    if (DLRTPHeaderLength([header bytes], [header length], NULL) != [header length]) {
+        if (error) *error = [NSError errorWithDomain:DLVoiceMediaErrorDomain code:-101 userInfo:nil];
+        return nil;
+    }
+    return [self encryptPayload:opus clearHeader:header error:error];
 }
 
 - (NSData *)decryptVoicePacket:(NSData *)packet error:(NSError **)error {

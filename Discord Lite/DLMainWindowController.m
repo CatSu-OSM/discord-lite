@@ -1264,6 +1264,9 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
     [voiceToolbarView setFrame:NSMakeRect(0.0f, 0.0f, chatWidth, 82.0f)];
     [voiceTitleTextField setFrame:NSMakeRect(28.0f, voiceHeight - 76.0f, chatWidth - 56.0f, 26.0f)];
     [voiceStatusTextField setFrame:NSMakeRect(28.0f, voiceHeight - 102.0f, chatWidth - 56.0f, 20.0f)];
+    CGFloat previewHeight = MAX(0.0f, voiceHeight - 206.0f);
+    CGFloat previewWidth = MIN(chatWidth - 56.0f, previewHeight * (16.0f / 9.0f));
+    [[voiceCameraCapture previewView] setFrame:NSMakeRect((chatWidth - previewWidth) / 2.0f, 96.0f, previewWidth, previewHeight)];
     // Keep the entire call bar in the right pane, matching the compact
     // icon-only control strip used by Discord's classic voice UI.
     CGFloat buttonY = 18.0f;
@@ -1291,7 +1294,7 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
     controlX += buttonSize;
     [voiceDeafenMenuButton setFrame:NSMakeRect(controlX, buttonY, chevronWidth, 34.0f)];
     controlX += chevronWidth + gap;
-    [voiceScreenShareButton setFrame:NSMakeRect(controlX, buttonY, smallButtonWidth, 34.0f)];
+    [voiceCameraButton setFrame:NSMakeRect(controlX, buttonY, smallButtonWidth, 34.0f)];
     controlX += smallButtonWidth + gap;
     if (fullCallBar) {
         [voiceActivityButton setFrame:NSMakeRect(controlX, buttonY, smallButtonWidth, 34.0f)]; controlX += smallButtonWidth + gap;
@@ -1299,7 +1302,6 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
         [voiceMoreButton setFrame:NSMakeRect(controlX, buttonY, smallButtonWidth, 34.0f)]; controlX += smallButtonWidth + 18.0f;
     }
     [voiceLeaveButton setFrame:NSMakeRect(controlX, buttonY - 2.0f, 58.0f, 38.0f)];
-
     NSRect entryFrame = [messageEntryScrollView frame];
     entryFrame.size.width = chatWidth - 58.0f;
     [messageEntryScrollView setFrame:entryFrame];
@@ -1388,6 +1390,10 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
         [voicePanelView addSubview:voiceTitleTextField];
         voiceStatusTextField = DLLabel(NSMakeRect(28, 0, 350, 20), @"Connecting…", [NSFont systemFontOfSize:13], [NSColor lightGrayColor]);
         [voicePanelView addSubview:voiceStatusTextField];
+        voiceCameraCapture = [[DLCameraCapture alloc] initWithFrame:NSZeroRect];
+        [voiceCameraCapture setDelegate:[DLWSController sharedInstance]];
+        [[voiceCameraCapture previewView] setHidden:YES];
+        [voicePanelView addSubview:[voiceCameraCapture previewView]];
         voiceMuteButton = [[DLVoiceToolbarButton alloc] initWithFrame:NSMakeRect(28, 0, 38, 34)];
         [voiceMuteButton setTitle:@"Mic"];
         [voiceMuteButton setBezelStyle:NSRoundedBezelStyle];
@@ -1416,13 +1422,13 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
         [voiceDeafenMenuButton setTarget:self];
         [voiceDeafenMenuButton setAction:@selector(voiceFeatureUnavailable:)];
         [voiceToolbarView addSubview:voiceDeafenMenuButton];
-        voiceScreenShareButton = [[DLVoiceToolbarButton alloc] initWithFrame:NSMakeRect(112, 0, 38, 34)];
-        [voiceScreenShareButton setTitle:@"Share"];
-        [voiceScreenShareButton setBezelStyle:NSRoundedBezelStyle];
-        DLConfigureVoiceToolbarButton(voiceScreenShareButton, DLVoiceIconScreenShare, @"Screen sharing is not available in Discord Lite yet.");
-        [voiceScreenShareButton setTarget:self];
-        [voiceScreenShareButton setAction:@selector(voiceFeatureUnavailable:)];
-        [voiceToolbarView addSubview:voiceScreenShareButton];
+        voiceCameraButton = [[DLVoiceToolbarButton alloc] initWithFrame:NSMakeRect(112, 0, 38, 34)];
+        [voiceCameraButton setTitle:@"Camera"];
+        [voiceCameraButton setBezelStyle:NSRoundedBezelStyle];
+        DLConfigureVoiceToolbarButton(voiceCameraButton, DLVoiceIconScreenShare, @"Start camera");
+        [voiceCameraButton setTarget:self];
+        [voiceCameraButton setAction:@selector(toggleVoiceCamera:)];
+        [voiceToolbarView addSubview:voiceCameraButton];
         voiceInviteButton = [[DLVoiceToolbarButton alloc] initWithFrame:NSMakeRect(154, 0, 38, 34)];
         [voiceInviteButton setTitle:@"Invite"];
         [voiceInviteButton setBezelStyle:NSRoundedBezelStyle];
@@ -1475,7 +1481,7 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
         [voiceMuteMenuButton release];
         [voiceDeafenButton release];
         [voiceDeafenMenuButton release];
-        [voiceScreenShareButton release];
+        [voiceCameraButton release];
         [voiceInviteButton release];
         [voiceActivityButton release];
         [voiceNoiseSuppressionButton release];
@@ -1756,6 +1762,9 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
     [messageEntryTextView setString:@""];
     [self textDidChange:nil];
     [voicePanelView setHidden:YES];
+    [voiceCameraCapture stop];
+    [[DLWSController sharedInstance] setVoiceVideoEnabled:NO];
+    [[voiceCameraCapture previewView] setHidden:YES];
     [chatScrollView setHidden:NO];
     [messageEntryContainerView setHidden:NO];
     [voiceStatusTimer invalidate];
@@ -1779,6 +1788,7 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
     [voiceMuteButton setToolTip:[voice isVoiceSelfMuted] ? @"Unmute microphone" : @"Mute microphone"];
     [voiceDeafenButton setImage:DLVoiceToolbarImage([voice isVoiceSelfDeafened] ? DLVoiceIconDeafenedHeadphones : DLVoiceIconHeadphones)];
     [voiceDeafenButton setToolTip:[voice isVoiceSelfDeafened] ? @"Undeafen" : @"Deafen"];
+    [voiceCameraButton setToolTip:[voiceCameraCapture isRunning] ? @"Stop camera" : @"Start camera"];
 }
 
 -(IBAction)toggleVoiceMute:(id)sender {
@@ -1790,6 +1800,27 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
 -(IBAction)toggleVoiceDeafen:(id)sender {
     DLWSController *voice = [DLWSController sharedInstance];
     [voice setVoiceSelfDeafened:![voice isVoiceSelfDeafened]];
+    [self updateVoiceStatus:nil];
+}
+
+-(IBAction)toggleVoiceCamera:(id)sender {
+    if ([voiceCameraCapture isRunning]) {
+        [voiceCameraCapture stop];
+        [[DLWSController sharedInstance] setVoiceVideoEnabled:NO];
+        [[voiceCameraCapture previewView] setHidden:YES];
+    } else {
+        NSError *error = nil;
+        if ([voiceCameraCapture start:&error]) {
+            [[DLWSController sharedInstance] setVoiceVideoEnabled:YES];
+            [[voiceCameraCapture previewView] setHidden:NO];
+        } else {
+            NSAlert *alert = [[[NSAlert alloc] init] autorelease];
+            [alert setMessageText:@"Camera could not start"];
+            [alert setInformativeText:error ? [error localizedDescription] : @"Discord Lite could not open the camera."];
+            [alert addButtonWithTitle:@"OK"];
+            [alert runModal];
+        }
+    }
     [self updateVoiceStatus:nil];
 }
 
@@ -2274,6 +2305,8 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
     [memberListScrollView release];
     [memberListHeaderLabel release];
     [memberListView release];
+    [voiceCameraCapture stop];
+    [voiceCameraCapture release];
     [emojiButton release];
     [super dealloc];
 }

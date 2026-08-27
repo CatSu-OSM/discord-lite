@@ -20,6 +20,7 @@
 - (NSData *)encodePCM:(NSData *)pcm frameCount:(int)frameCount error:(NSError **)error;
 - (NSData *)decodeOpus:(NSData *)packet frameCount:(int)frameCount error:(NSError **)error;
 - (BOOL)setXChaChaTransportKey:(NSData *)key error:(NSError **)error;
+- (NSData *)encryptPayload:(NSData *)payload clearHeader:(NSData *)header error:(NSError **)error;
 - (NSData *)encryptOpus:(NSData *)opus rtpHeader:(NSData *)header error:(NSError **)error;
 - (NSData *)decryptVoicePacket:(NSData *)packet error:(NSError **)error;
 

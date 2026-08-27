@@ -17,6 +17,7 @@
 #import "DLVoiceMedia.h"
 #import "DLVoiceCapture.h"
 #import "DLVoicePlayback.h"
+#import "DLCameraCapture.h"
 
 #include <stdint.h>
 
@@ -72,7 +73,7 @@ typedef enum {
                                  userID:(NSString *)userID;
 @end
 
-@interface DLWSController : NSObject <DLVoiceCaptureDelegate> {
+@interface DLWSController : NSObject <DLVoiceCaptureDelegate, DLCameraCaptureDelegate> {
     CURL *curlWebSocketHandle;
     CURL *voiceWebSocketHandle;
     NSString *token;
@@ -84,6 +85,8 @@ typedef enum {
     int voiceSequenceNumber;
     int voiceUDPSocket;
     uint32_t voiceSSRC;
+    uint32_t voiceVideoSSRC;
+    uint32_t voiceVideoRTXSSRC;
     id<DLWSControllerDelegate> delegate;
     BOOL heartbeatResponseReceived;
     BOOL shouldResume;
@@ -110,6 +113,16 @@ typedef enum {
     DLVoiceMedia *voiceMedia;
     uint16_t voiceRTPSequence;
     uint32_t voiceRTPTimestamp;
+    uint16_t voiceVideoRTPSequence;
+    uint16_t voiceVideoTransportSequence;
+    uint32_t voiceVideoPacketCount;
+    uint32_t voiceVideoOctetCount;
+    uint32_t voiceVideoLastTimestamp;
+    NSUInteger voiceRTCPTypesLogged;
+    NSTimer *voiceVideoRTCPTimer;
+    BOOL voiceVideoEnabled;
+    BOOL voiceVideoAwaitingKeyFrame;
+    BOOL voiceDAVEMediaActive;
     DLVoiceCapture *voiceCapture;
     BOOL voiceIsSpeaking;
     DLVoicePlayback *voicePlayback;
@@ -142,6 +155,8 @@ typedef enum {
 -(void)setVoiceSelfDeafened:(BOOL)deafened;
 -(BOOL)isVoiceSelfMuted;
 -(BOOL)isVoiceSelfDeafened;
+-(void)setVoiceVideoEnabled:(BOOL)enabled;
+-(BOOL)isVoiceVideoEnabled;
 -(NSString *)voiceStatusText;
 
 -(void)queryServer:(DLServer *)s forMembersContainingUsername:(NSString *)username;

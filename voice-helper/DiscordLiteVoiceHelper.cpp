@@ -281,6 +281,8 @@ static void splitUserIDs(char *text, std::vector<const char *> *users) {
 static int daveService() {
     DAVESessionHandle session = NULL;
     DAVEEncryptorHandle encryptor = NULL;
+    DAVEDecryptorHandle selfVerifier = NULL;
+    bool videoSelfVerified = false;
     std::map<std::string, DAVEDecryptorHandle> decryptors;
     std::string selfUserID;
     char line[32768];
@@ -299,6 +301,11 @@ static int daveService() {
                 daveEncryptorDestroy(encryptor);
                 encryptor = NULL;
             }
+            if (selfVerifier) {
+                daveDecryptorDestroy(selfVerifier);
+                selfVerifier = NULL;
+            }
+            videoSelfVerified = false;
             for (std::map<std::string, DAVEDecryptorHandle>::iterator it = decryptors.begin(); it != decryptors.end(); ++it) daveDecryptorDestroy(it->second);
             decryptors.clear();
             printResponse("OK");
@@ -318,6 +325,11 @@ static int daveService() {
                 daveEncryptorDestroy(encryptor);
                 encryptor = NULL;
             }
+            if (selfVerifier) {
+                daveDecryptorDestroy(selfVerifier);
+                selfVerifier = NULL;
+            }
+            videoSelfVerified = false;
             for (std::map<std::string, DAVEDecryptorHandle>::iterator it = decryptors.begin(); it != decryptors.end(); ++it) daveDecryptorDestroy(it->second);
             decryptors.clear();
             session = daveSessionCreate(NULL, userID, daveFailure, NULL);
@@ -345,7 +357,7 @@ static int daveService() {
         }
         char *hex = strtok(NULL, " ");
         std::vector<uint8_t> bytes;
-        if (strcmp(command, "ACTIVATE") != 0 && strcmp(command, "ENCRYPT") != 0 && strcmp(command, "DECRYPT") != 0 && (!hex || !decodeHex(hex, &bytes))) {
+        if (strcmp(command, "ACTIVATE") != 0 && strcmp(command, "ENCRYPT") != 0 && strcmp(command, "ENCRYPT_VIDEO") != 0 && strcmp(command, "DECRYPT") != 0 && (!hex || !decodeHex(hex, &bytes))) {
             printResponse("ERROR invalid-hex");
             continue;
         }
@@ -390,49 +402,96 @@ static int daveService() {
             }
         } else if (strcmp(command, "ACTIVATE") == 0) {
             char *ssrcText = hex;
+            char *videoSsrcText = strtok(NULL, " ");
             char *end = NULL;
             unsigned long ssrc = ssrcText ? strtoul(ssrcText, &end, 10) : 0;
             if (!ssrcText || !end || *end) {
                 printResponse("ERROR invalid-ssrc");
                 continue;
             }
+            char *videoEnd = NULL;
+            unsigned long videoSsrc = videoSsrcText ? strtoul(videoSsrcText, &videoEnd, 10) : 0;
+            if (videoSsrcText && (!videoEnd || *videoEnd)) {
+                printResponse("ERROR invalid-video-ssrc");
+                continue;
+            }
             for (std::map<std::string, DAVEDecryptorHandle>::iterator it = decryptors.begin(); it != decryptors.end(); ++it) daveDecryptorDestroy(it->second);
             decryptors.clear();
             DAVEKeyRatchetHandle ratchet = daveSessionGetKeyRatchet(session, selfUserID.c_str());
-            if (!ratchet) {
+            DAVEKeyRatchetHandle verifierRatchet = daveSessionGetKeyRatchet(session, selfUserID.c_str());
+            if (!ratchet || !verifierRatchet) {
+                if (ratchet) daveKeyRatchetDestroy(ratchet);
+                if (verifierRatchet) daveKeyRatchetDestroy(verifierRatchet);
                 printResponse("ERROR missing-sender-ratchet");
                 continue;
             }
             if (!encryptor) encryptor = daveEncryptorCreate();
             if (!encryptor) {
                 daveKeyRatchetDestroy(ratchet);
+                daveKeyRatchetDestroy(verifierRatchet);
                 printResponse("ERROR encryptor-create");
                 continue;
             }
+            if (selfVerifier) daveDecryptorDestroy(selfVerifier);
+            selfVerifier = daveDecryptorCreate();
+            if (!selfVerifier) {
+                daveKeyRatchetDestroy(ratchet);
+                daveKeyRatchetDestroy(verifierRatchet);
+                printResponse("ERROR verifier-create");
+                continue;
+            }
+            daveDecryptorTransitionToPassthroughMode(selfVerifier, false);
+            daveDecryptorTransitionToKeyRatchet(selfVerifier, verifierRatchet);
+            daveKeyRatchetDestroy(verifierRatchet);
+            videoSelfVerified = false;
             daveEncryptorAssignSsrcToCodec(encryptor, (uint32_t)ssrc, DAVE_CODEC_OPUS);
+            if (videoSsrc) daveEncryptorAssignSsrcToCodec(encryptor, (uint32_t)videoSsrc, DAVE_CODEC_H264);
             daveEncryptorSetPassthroughMode(encryptor, false);
             daveEncryptorSetKeyRatchet(encryptor, ratchet);
             daveKeyRatchetDestroy(ratchet);
             printResponse(daveEncryptorHasKeyRatchet(encryptor) ? "MEDIA_READY" : "ERROR missing-sender-ratchet");
-        } else if (strcmp(command, "ENCRYPT") == 0) {
+        } else if (strcmp(command, "ENCRYPT") == 0 || strcmp(command, "ENCRYPT_VIDEO") == 0) {
+            bool video = strcmp(command, "ENCRYPT_VIDEO") == 0;
             char *ssrcText = hex;
-            char *opusHex = strtok(NULL, " ");
+            char *mediaHex = strtok(NULL, " ");
             char *end = NULL;
             unsigned long ssrc = ssrcText ? strtoul(ssrcText, &end, 10) : 0;
-            std::vector<uint8_t> opus;
-            if (!encryptor || !ssrcText || !end || *end || !opusHex || !decodeHex(opusHex, &opus)) {
+            std::vector<uint8_t> media;
+            if (!encryptor || !ssrcText || !end || *end || !mediaHex || !decodeHex(mediaHex, &media)) {
                 printResponse("ERROR media-not-ready");
                 continue;
             }
-            size_t encryptedLength = daveEncryptorGetMaxCiphertextByteSize(encryptor, DAVE_MEDIA_TYPE_AUDIO, opus.size());
+            DAVEMediaType mediaType = video ? DAVE_MEDIA_TYPE_VIDEO : DAVE_MEDIA_TYPE_AUDIO;
+            size_t encryptedLength = daveEncryptorGetMaxCiphertextByteSize(encryptor, mediaType, media.size());
             std::vector<uint8_t> encrypted(encryptedLength);
-            DAVEEncryptorResultCode result = daveEncryptorEncrypt(encryptor, DAVE_MEDIA_TYPE_AUDIO, (uint32_t)ssrc,
-                                                                    opus.data(), opus.size(), encrypted.data(), encrypted.size(), &encryptedLength);
+            DAVEEncryptorResultCode result = daveEncryptorEncrypt(encryptor, mediaType, (uint32_t)ssrc,
+                                                                    media.data(), media.size(), encrypted.data(), encrypted.size(), &encryptedLength);
             if (result != DAVE_ENCRYPTOR_RESULT_CODE_SUCCESS) {
                 printResponse("ERROR encrypt-failed");
                 continue;
             }
-            printHexResponse("ENCRYPTED", encrypted.data(), encryptedLength);
+            if (selfVerifier && !videoSelfVerified) {
+                size_t verifiedLength = daveDecryptorGetMaxPlaintextByteSize(selfVerifier, mediaType, encryptedLength);
+                std::vector<uint8_t> verified(verifiedLength);
+                DAVEDecryptorResultCode verifyResult = daveDecryptorDecrypt(selfVerifier, mediaType,
+                    encrypted.data(), encryptedLength, verified.data(), verified.size(), &verifiedLength);
+                if (verifyResult != DAVE_DECRYPTOR_RESULT_CODE_SUCCESS) {
+                    printResponse(video ? "ERROR video-self-decrypt-failed" : "ERROR audio-self-decrypt-failed");
+                    continue;
+                }
+                if (verifiedLength != media.size() || memcmp(verified.data(), media.data(), media.size()) != 0) {
+                    printResponse(video ? "ERROR video-self-decrypt-mismatch" : "ERROR audio-self-decrypt-mismatch");
+                    continue;
+                }
+                if (video) {
+                    fprintf(stderr, "DAVE video self-decrypt verified (%lu clear bytes, %lu encrypted bytes)\n",
+                            (unsigned long)media.size(), (unsigned long)encryptedLength);
+                    videoSelfVerified = true;
+                    daveDecryptorDestroy(selfVerifier);
+                    selfVerifier = NULL;
+                }
+            }
+            printHexResponse(video ? "ENCRYPTED_VIDEO" : "ENCRYPTED", encrypted.data(), encryptedLength);
         } else if (strcmp(command, "DECRYPT") == 0) {
             char *remoteUserID = hex;
             char *encryptedHex = strtok(NULL, " ");
@@ -473,6 +532,7 @@ static int daveService() {
         }
     }
     if (encryptor) daveEncryptorDestroy(encryptor);
+    if (selfVerifier) daveDecryptorDestroy(selfVerifier);
     for (std::map<std::string, DAVEDecryptorHandle>::iterator it = decryptors.begin(); it != decryptors.end(); ++it) daveDecryptorDestroy(it->second);
     if (session) daveSessionDestroy(session);
     return 0;

@@ -96,6 +96,7 @@ static NSString *DLVoiceHexStringFromData(NSData *data) {
 }
 
 -(NSString *)sendCommand:(NSString *)command error:(NSString **)error {
+    @synchronized(self) {
     if (!task || ![task isRunning] || !input || !output || ![command length]) {
         if (error) *error = @"The Lion voice helper is not running.";
         return nil;
@@ -121,6 +122,7 @@ static NSString *DLVoiceHexStringFromData(NSData *data) {
     }
     if (error) *error = @"The Lion voice helper stopped before it replied.";
     return nil;
+    }
 }
 
 -(void)stop {

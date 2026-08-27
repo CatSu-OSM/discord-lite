@@ -202,6 +202,10 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
         [voiceHeartbeatTimer invalidate];
         voiceHeartbeatTimer = nil;
     }
+    if (voiceVideoRTCPTimer) {
+        [voiceVideoRTCPTimer invalidate];
+        voiceVideoRTCPTimer = nil;
+    }
     if (voiceWebSocketHandle) {
         curl_easy_setopt(voiceWebSocketHandle, CURLOPT_TIMEOUT_MS, 1);
     }
@@ -223,12 +227,18 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     [voiceUsersBySSRC removeAllObjects];
     [voicePendingPacketsBySSRC removeAllObjects];
     voiceIsSpeaking = NO;
+    voiceVideoEnabled = NO;
+    voiceVideoAwaitingKeyFrame = NO;
+    voiceDAVEMediaActive = NO;
+    voiceVideoSSRC = 0;
+    voiceVideoRTXSSRC = 0;
     voiceDAVEEnabled = NO;
     voiceConnectionStarting = NO;
     voiceSelfMuted = NO;
     voiceSelfDeafened = NO;
     voicePacketsReceived = 0;
     voicePacketsPlayed = 0;
+    voiceRTCPTypesLogged = 0;
     voiceCredentialAttempts = 0;
     DLVoiceSetStatus(&voiceConnectionStatus, @"Disconnected");
     [voiceClientIDs removeAllObjects];
@@ -556,6 +566,10 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
         [voiceHeartbeatTimer invalidate];
         voiceHeartbeatTimer = nil;
     }
+    if (voiceVideoRTCPTimer) {
+        [voiceVideoRTCPTimer invalidate];
+        voiceVideoRTCPTimer = nil;
+    }
     if (voiceWebSocketHandle) {
         curl_easy_setopt(voiceWebSocketHandle, CURLOPT_TIMEOUT_MS, 1);
     }
@@ -568,6 +582,7 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     voiceSelfDeafened = NO;
     voicePacketsReceived = 0;
     voicePacketsPlayed = 0;
+    voiceRTCPTypesLogged = 0;
     DLVoiceSetError(&voiceLastError, nil);
     DLVoiceSetStatus(&voiceConnectionStatus, @"Requesting voice credentials…");
     voiceCredentialAttempts = 0;
@@ -585,6 +600,11 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     [voiceUsersBySSRC removeAllObjects];
     [voicePendingPacketsBySSRC removeAllObjects];
     voiceIsSpeaking = NO;
+    voiceVideoEnabled = NO;
+    voiceVideoAwaitingKeyFrame = NO;
+    voiceDAVEMediaActive = NO;
+    voiceVideoSSRC = 0;
+    voiceVideoRTXSSRC = 0;
     voiceDAVEEnabled = NO;
     [voiceClientIDs removeAllObjects];
 
@@ -594,6 +614,8 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
     [data setObject:channelID forKey:@"channel_id"];
     [data setObject:[NSNumber numberWithBool:NO] forKey:@"self_mute"];
     [data setObject:[NSNumber numberWithBool:NO] forKey:@"self_deaf"];
+    [data setObject:[NSNumber numberWithBool:NO] forKey:@"self_video"];
+    [data setObject:[NSNumber numberWithBool:NO] forKey:@"self_stream"];
 
     NSMutableDictionary *request = [[NSMutableDictionary alloc] init];
     [request setObject:[NSNumber numberWithInt:OPCodeVoiceStateUpdate] forKey:@kWSOperation];
@@ -639,8 +661,10 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
 
 -(void)sendVoiceStateForChannelID:(id)channelID {
     if (!pendingVoiceGuildID) return;
+    BOOL videoActive = voiceVideoEnabled && voiceDAVEMediaActive;
     NSDictionary *data = [NSDictionary dictionaryWithObjectsAndKeys:pendingVoiceGuildID, @"guild_id", channelID, @"channel_id",
-                          [NSNumber numberWithBool:voiceSelfMuted], @"self_mute", [NSNumber numberWithBool:voiceSelfDeafened], @"self_deaf", nil];
+                          [NSNumber numberWithBool:voiceSelfMuted], @"self_mute", [NSNumber numberWithBool:voiceSelfDeafened], @"self_deaf",
+                          [NSNumber numberWithBool:videoActive], @"self_video", [NSNumber numberWithBool:NO], @"self_stream", nil];
     NSDictionary *request = [NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithInt:OPCodeVoiceStateUpdate], @kWSOperation, data, @kWSData, nil];
     [self sendWSTextData:[[CJSONSerializer serializer] serializeDictionary:request error:nil]];
 }
@@ -657,6 +681,95 @@ static size_t writecb(char *b, size_t size, size_t nitems, void *p) {
 
 -(BOOL)isVoiceSelfMuted { return voiceSelfMuted; }
 -(BOOL)isVoiceSelfDeafened { return voiceSelfDeafened; }
+
+-(void)sendVoiceVideoState {
+    if (!voiceWebSocketHandle || !voiceVideoSSRC) return;
+    NSArray *streams = [NSArray array];
+    uint32_t videoSSRC = 0;
+    uint32_t rtxSSRC = 0;
+    if (voiceVideoEnabled && voiceDAVEMediaActive) {
+        videoSSRC = voiceVideoSSRC;
+        rtxSSRC = voiceVideoRTXSSRC;
+        NSDictionary *resolution = [NSDictionary dictionaryWithObjectsAndKeys:@"fixed", @"type",
+                                    [NSNumber numberWithInt:320], @"width", [NSNumber numberWithInt:240], @"height", nil];
+        NSDictionary *stream = [NSDictionary dictionaryWithObjectsAndKeys:@"video", @"type", @"100", @"rid",
+                                [NSNumber numberWithUnsignedInt:videoSSRC], @"ssrc",
+                                [NSNumber numberWithUnsignedInt:rtxSSRC], @"rtx_ssrc",
+                                [NSNumber numberWithBool:YES], @"active", [NSNumber numberWithInt:100], @"quality",
+                                [NSNumber numberWithInt:750000], @"max_bitrate", [NSNumber numberWithInt:15], @"max_framerate",
+                                resolution, @"max_resolution", nil];
+        streams = [NSArray arrayWithObject:stream];
+    }
+    NSDictionary *data = [NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithUnsignedInt:voiceSSRC], @"audio_ssrc",
+                          [NSNumber numberWithUnsignedInt:videoSSRC], @"video_ssrc",
+                          [NSNumber numberWithUnsignedInt:rtxSSRC], @"rtx_ssrc", streams, @"streams", nil];
+    NSDictionary *request = [NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithInt:12], @kWSOperation, data, @kWSData, nil];
+    [self sendVoiceWSTextData:[[CJSONSerializer serializer] serializeDictionary:request error:nil]];
+}
+
+static NSString *DLH264NALSummary(NSData *frame) {
+    const unsigned char *bytes = [frame bytes];
+    NSUInteger length = [frame length];
+    NSMutableArray *parts = [NSMutableArray array];
+    NSUInteger index = 0;
+    while (index + 3 < length) {
+        NSUInteger startCodeLength = 0;
+        if (bytes[index] == 0 && bytes[index + 1] == 0 && bytes[index + 2] == 1) startCodeLength = 3;
+        else if (index + 4 <= length && bytes[index] == 0 && bytes[index + 1] == 0 && bytes[index + 2] == 0 && bytes[index + 3] == 1) startCodeLength = 4;
+        if (!startCodeLength) { index++; continue; }
+        NSUInteger nalStart = index + startCodeLength;
+        NSUInteger next = nalStart;
+        while (next + 3 < length && !(bytes[next] == 0 && bytes[next + 1] == 0 &&
+               (bytes[next + 2] == 1 || (bytes[next + 2] == 0 && bytes[next + 3] == 1)))) next++;
+        NSUInteger nalEnd = next + 3 < length ? next : length;
+        if (nalEnd > nalStart) {
+            NSUInteger nalType = bytes[nalStart] & 0x1f;
+            NSString *extra = @"";
+            if (nalType == 7 && nalEnd > nalStart + 3) {
+                extra = [NSString stringWithFormat:@" profile=%u compat=%u level=%u", bytes[nalStart + 1], bytes[nalStart + 2], bytes[nalStart + 3]];
+            }
+            [parts addObject:[NSString stringWithFormat:@"type=%lu bytes=%lu%@", (unsigned long)nalType,
+                              (unsigned long)(nalEnd - nalStart), extra]];
+        }
+        index = nalEnd;
+    }
+    return [parts componentsJoinedByString:@", "];
+}
+
+static BOOL DLH264ContainsNALType(NSData *frame, unsigned char wantedType) {
+    const unsigned char *bytes = [frame bytes];
+    NSUInteger length = [frame length];
+    NSUInteger index = 0;
+    while (index + 3 < length) {
+        NSUInteger startCodeLength = 0;
+        if (bytes[index] == 0 && bytes[index + 1] == 0 && bytes[index + 2] == 1) startCodeLength = 3;
+        else if (index + 4 <= length && bytes[index] == 0 && bytes[index + 1] == 0 &&
+                 bytes[index + 2] == 0 && bytes[index + 3] == 1) startCodeLength = 4;
+        if (startCodeLength && index + startCodeLength < length &&
+            (bytes[index + startCodeLength] & 0x1f) == wantedType) return YES;
+        index++;
+    }
+    return NO;
+}
+
+-(void)setVoiceVideoEnabled:(BOOL)enabled {
+    voiceVideoEnabled = enabled;
+    voiceVideoAwaitingKeyFrame = enabled;
+    if (pendingVoiceChannelID) [self sendVoiceStateForChannelID:pendingVoiceChannelID];
+    [self sendVoiceVideoState];
+    if (voiceVideoRTCPTimer) {
+        [voiceVideoRTCPTimer invalidate];
+        voiceVideoRTCPTimer = nil;
+    }
+    if (enabled) {
+        voiceVideoRTCPTimer = [NSTimer scheduledTimerWithTimeInterval:1.0 target:self
+                                  selector:@selector(sendVoiceVideoSenderReport) userInfo:nil repeats:YES];
+    }
+    NSLog(@"Camera video %@ (DAVE %@, video SSRC %u, RTX SSRC %u)",
+          enabled ? @"requested" : @"disabled", voiceDAVEMediaActive ? @"ready" : @"pending", voiceVideoSSRC, voiceVideoRTXSSRC);
+}
+
+-(BOOL)isVoiceVideoEnabled { return voiceVideoEnabled; }
 
 -(void)leaveVoiceChannel {
     if (pendingVoiceGuildID) {
@@ -822,11 +935,16 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
 -(void)activateDAVEMedia {
     if (!voiceDAVEEnabled || !voiceMedia) return;
     NSString *helperError = nil;
-    NSString *reply = [voiceHelper sendCommand:[NSString stringWithFormat:@"ACTIVATE %u", voiceSSRC] error:&helperError];
+    NSString *reply = [voiceHelper sendCommand:[NSString stringWithFormat:@"ACTIVATE %u %u", voiceSSRC, voiceVideoSSRC] error:&helperError];
     if (![reply isEqualToString:@"MEDIA_READY"]) {
         NSLog(@"DAVE media activation failed: %@ %@", reply, helperError);
         return;
     }
+    voiceDAVEMediaActive = YES;
+    if (voiceVideoEnabled) voiceVideoAwaitingKeyFrame = YES;
+    if (voiceVideoEnabled && pendingVoiceChannelID) [self sendVoiceStateForChannelID:pendingVoiceChannelID];
+    [self sendVoiceVideoState];
+    if (voiceVideoEnabled) NSLog(@"Camera video announced after DAVE activation; frames may start now");
     DLVoiceSetStatus(&voiceConnectionStatus, @"Voice media active; waiting for speech…");
     // Send the SSRC registration before the AudioQueue is allowed to produce
     // a frame.  A callback-time send can race the first UDP packet.
@@ -891,6 +1009,128 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
     }
 }
 
+-(void)sendVideoPayload:(NSData *)payload timestamp:(uint32_t)timestamp marker:(BOOL)marker {
+    if (![payload length] || voiceUDPSocket < 0 || !voiceMedia) return;
+    unsigned char headerBytes[16] = { 0x90, 0x65, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xbe, 0xde, 0, 1 };
+    if (marker) headerBytes[1] |= 0x80;
+    BOOL firstVideoPacket = voiceVideoRTPSequence == 0;
+    uint16_t sequence = htons(voiceVideoRTPSequence++);
+    uint32_t networkTimestamp = htonl(timestamp);
+    uint32_t ssrc = htonl(voiceVideoSSRC);
+    memcpy(headerBytes + 2, &sequence, sizeof(sequence));
+    memcpy(headerBytes + 4, &networkTimestamp, sizeof(networkTimestamp));
+    memcpy(headerBytes + 8, &ssrc, sizeof(ssrc));
+    // Native voice RTP maps receiver playout delay to extension ID 6. RID is
+    // already bound to this SSRC by voice opcode 12 and is not repeated here.
+    unsigned char extensions[4] = { 0x62, 0x00, 0x00, 0x00 };
+    NSMutableData *extendedPayload = [NSMutableData dataWithBytes:extensions length:sizeof(extensions)];
+    [extendedPayload appendData:payload];
+    NSError *transportError = nil;
+    NSData *packet = [voiceMedia encryptOpus:extendedPayload rtpHeader:[NSData dataWithBytes:headerBytes length:sizeof(headerBytes)] error:&transportError];
+    if (!packet) {
+        NSLog(@"Camera RTP encryption failed: %@", transportError);
+        return;
+    }
+    if (send(voiceUDPSocket, [packet bytes], [packet length], 0) < 0) NSLog(@"Camera RTP send failed: %s", strerror(errno));
+    else {
+        voiceVideoPacketCount++;
+        voiceVideoOctetCount += (uint32_t)[payload length];
+        voiceVideoLastTimestamp = timestamp;
+        if (firstVideoPacket) NSLog(@"Camera sent first extended H.264 RTP packet on SSRC %u", voiceVideoSSRC);
+    }
+}
+
+-(void)sendVoiceVideoSenderReport {
+    if (!voiceVideoEnabled || !voiceVideoSSRC || !voiceMedia || voiceUDPSocket < 0 || !voiceVideoPacketCount) return;
+    unsigned char headerBytes[8] = { 0x80, 200, 0, 6, 0, 0, 0, 0 };
+    uint32_t value = htonl(voiceVideoSSRC);
+    memcpy(headerBytes + 4, &value, 4);
+    unsigned char body[20];
+    NSTimeInterval unixTime = [[NSDate date] timeIntervalSince1970];
+    uint32_t unixSeconds = (uint32_t)unixTime;
+    value = htonl(unixSeconds + 2208988800U);
+    memcpy(body, &value, 4);
+    value = htonl((uint32_t)((unixTime - unixSeconds) * 4294967296.0));
+    memcpy(body + 4, &value, 4);
+    value = htonl(voiceVideoLastTimestamp);
+    memcpy(body + 8, &value, 4);
+    value = htonl(voiceVideoPacketCount);
+    memcpy(body + 12, &value, 4);
+    value = htonl(voiceVideoOctetCount);
+    memcpy(body + 16, &value, 4);
+    NSError *transportError = nil;
+    NSData *packet = [voiceMedia encryptPayload:[NSData dataWithBytes:body length:sizeof(body)]
+                                     clearHeader:[NSData dataWithBytes:headerBytes length:sizeof(headerBytes)] error:&transportError];
+    if (!packet) {
+        NSLog(@"Camera RTCP encryption failed: %@", transportError);
+        return;
+    }
+    if (send(voiceUDPSocket, [packet bytes], [packet length], 0) < 0) NSLog(@"Camera RTCP send failed: %s", strerror(errno));
+    else if (voiceVideoPacketCount && voiceVideoPacketCount < 100) NSLog(@"Camera sent RTCP sender report for SSRC %u", voiceVideoSSRC);
+}
+
+-(void)cameraCapture:(DLCameraCapture *)capture didEncodeH264Frame:(NSData *)frame timestamp:(uint32_t)timestamp {
+    if (!voiceVideoEnabled || !voiceDAVEMediaActive || !voiceVideoSSRC || ![frame length]) return;
+    if (voiceVideoAwaitingKeyFrame) {
+        BOOL decodableKeyFrame = DLH264ContainsNALType(frame, 7) && DLH264ContainsNALType(frame, 8) &&
+                                 DLH264ContainsNALType(frame, 5);
+        if (!decodableKeyFrame) {
+            [capture requestKeyFrame];
+            return;
+        }
+        voiceVideoAwaitingKeyFrame = NO;
+    }
+    BOOL firstVideoFrame = voiceVideoPacketCount == 0;
+    if (firstVideoFrame) NSLog(@"Camera first clear H.264 frame: %@", DLH264NALSummary(frame));
+    NSString *helperError = nil;
+    NSString *reply = [voiceHelper sendCommand:[NSString stringWithFormat:@"ENCRYPT_VIDEO %u %@", voiceVideoSSRC, DLHexStringFromData(frame)] error:&helperError];
+    if (![reply hasPrefix:@"ENCRYPTED_VIDEO "]) {
+        if (helperError) NSLog(@"DAVE camera encryption failed: %@", helperError);
+        return;
+    }
+    NSData *encryptedFrame = DLDataFromHexString([reply substringFromIndex:[@"ENCRYPTED_VIDEO " length]]);
+    if (firstVideoFrame) NSLog(@"Camera first DAVE H.264 frame: %@", DLH264NALSummary(encryptedFrame));
+    const unsigned char *bytes = [encryptedFrame bytes];
+    NSUInteger length = [encryptedFrame length];
+    NSMutableArray *nalRanges = [NSMutableArray array];
+    NSUInteger index = 0;
+    while (index + 3 < length) {
+        NSUInteger startCodeLength = 0;
+        if (bytes[index] == 0 && bytes[index + 1] == 0 && bytes[index + 2] == 1) startCodeLength = 3;
+        else if (index + 4 <= length && bytes[index] == 0 && bytes[index + 1] == 0 && bytes[index + 2] == 0 && bytes[index + 3] == 1) startCodeLength = 4;
+        if (!startCodeLength) { index++; continue; }
+        NSUInteger nalStart = index + startCodeLength;
+        NSUInteger next = nalStart;
+        while (next + 3 < length && !(bytes[next] == 0 && bytes[next + 1] == 0 &&
+               (bytes[next + 2] == 1 || (next + 3 < length && bytes[next + 2] == 0 && bytes[next + 3] == 1)))) next++;
+        NSUInteger nalEnd = next + 3 < length ? next : length;
+        if (nalEnd > nalStart) [nalRanges addObject:[NSValue valueWithRange:NSMakeRange(nalStart, nalEnd - nalStart)]];
+        index = nalEnd;
+    }
+    NSUInteger nalIndex;
+    for (nalIndex = 0; nalIndex < [nalRanges count]; nalIndex++) {
+        NSRange range = [[nalRanges objectAtIndex:nalIndex] rangeValue];
+        BOOL lastNAL = nalIndex + 1 == [nalRanges count];
+        if (range.length <= 1100) {
+            [self sendVideoPayload:[encryptedFrame subdataWithRange:range] timestamp:timestamp marker:lastNAL];
+            continue;
+        }
+        unsigned char nalHeader = bytes[range.location];
+        NSUInteger offset = 1;
+        while (offset < range.length) {
+            NSUInteger chunkLength = MIN((NSUInteger)1098, range.length - offset);
+            BOOL start = offset == 1;
+            BOOL end = offset + chunkLength == range.length;
+            unsigned char fuHeaders[2] = { (unsigned char)((nalHeader & 0xe0) | 28),
+                                           (unsigned char)((nalHeader & 0x1f) | (start ? 0x80 : 0) | (end ? 0x40 : 0)) };
+            NSMutableData *fragment = [NSMutableData dataWithBytes:fuHeaders length:2];
+            [fragment appendBytes:bytes + range.location + offset length:chunkLength];
+            [self sendVideoPayload:fragment timestamp:timestamp marker:(lastNAL && end)];
+            offset += chunkLength;
+        }
+    }
+}
+
 -(void)restartVoiceCapture {
     if (!voiceCapture) return;
     [voiceCapture stop];
@@ -918,8 +1158,29 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
 }
 
 -(void)voiceUDPPacketReceived:(NSData *)packet {
-    if (voiceSelfDeafened || !voiceMedia || [packet length] < 12) return;
+    if (!voiceMedia || [packet length] < 4) return;
     const unsigned char *bytes = [packet bytes];
+    unsigned char packetType = bytes[1];
+    if (packetType >= 200 && packetType <= 206) {
+        unsigned char feedbackFormat = bytes[0] & 0x1f;
+        NSUInteger typeBit = (NSUInteger)1 << (packetType - 200);
+        if ((voiceRTCPTypesLogged & typeBit) == 0) {
+            voiceRTCPTypesLogged |= typeBit;
+            if (packetType == 205 || packetType == 206) {
+                NSLog(@"Voice received RTCP packet type %u format %u (%lu bytes)", packetType,
+                      feedbackFormat, (unsigned long)[packet length]);
+            } else {
+                NSLog(@"Voice received RTCP packet type %u (%lu bytes)", packetType,
+                      (unsigned long)[packet length]);
+            }
+        }
+        // PSFB includes PLI/FIR requests used when a viewer starts receiving
+        // this stream or loses a reference frame.  A fresh decodable H.264
+        // keyframe is safe for every PSFB subtype and avoids a viewer timeout.
+        if (packetType == 206 && voiceVideoEnabled) voiceVideoAwaitingKeyFrame = YES;
+        return;
+    }
+    if (voiceSelfDeafened || [packet length] < 12) return;
     // The UDP socket also receives RTCP/control traffic. Only Discord's Opus
     // RTP payload (type 120, with an optional marker bit) uses the negotiated
     // AEAD transport key; attempting to decrypt control packets looks like an
@@ -995,6 +1256,10 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
     [data setObject:userID forKey:@"user_id"];
     [data setObject:pendingVoiceSessionID forKey:@"session_id"];
     [data setObject:pendingVoiceToken forKey:@"token"];
+    [data setObject:[NSNumber numberWithBool:YES] forKey:@"video"];
+    NSDictionary *stream = [NSDictionary dictionaryWithObjectsAndKeys:@"video", @"type", @"100", @"rid",
+                            [NSNumber numberWithInt:100], @"quality", nil];
+    [data setObject:[NSArray arrayWithObject:stream] forKey:@"streams"];
     [data setObject:[NSNumber numberWithInt:(voiceDAVEEnabled ? 1 : 0)] forKey:@"max_dave_protocol_version"];
     NSDictionary *identify = [NSDictionary dictionaryWithObjectsAndKeys:
                               [NSNumber numberWithInt:0], @kWSOperation, data, @kWSData, nil];
@@ -1029,12 +1294,29 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
         voiceServerIP = [[data objectForKey:@"ip"] retain];
         voiceServerPort = [[data objectForKey:@"port"] integerValue];
         voiceSSRC = [[data objectForKey:@"ssrc"] unsignedIntValue];
+        voiceVideoSSRC = 0;
+        voiceVideoRTXSSRC = 0;
+        NSArray *streams = [data objectForKey:@"streams"];
+        if ([streams isKindOfClass:[NSArray class]]) {
+            for (id stream in streams) {
+                if (![stream isKindOfClass:[NSDictionary class]]) continue;
+                id rid = [stream objectForKey:@"rid"];
+                if (rid && ![[rid description] isEqualToString:@"100"]) continue;
+                uint32_t candidateSSRC = [[stream objectForKey:@"ssrc"] unsignedIntValue];
+                if (!candidateSSRC) continue;
+                voiceVideoSSRC = candidateSSRC;
+                voiceVideoRTXSSRC = [[stream objectForKey:@"rtx_ssrc"] unsignedIntValue];
+                break;
+            }
+        }
+        NSLog(@"Voice Ready assigned audio SSRC %u, video SSRC %u, RTX SSRC %u", voiceSSRC, voiceVideoSSRC, voiceVideoRTXSSRC);
         [voiceEncryptionModes release];
         voiceEncryptionModes = [[data objectForKey:@"modes"] retain];
         [NSThread detachNewThreadSelector:@selector(startVoiceUDPDiscoveryThread:) toTarget:self
                                withObject:[NSNumber numberWithUnsignedInteger:voiceGeneration]];
     } else if (opcode == 4) {
         DLVoiceSetStatus(&voiceConnectionStatus, @"Voice transport ready; negotiating DAVE…");
+        NSLog(@"Voice session codecs: audio=%@ video=%@", [data objectForKey:@"audio_codec"], [data objectForKey:@"video_codec"]);
         NSData *transportKey = DLDataFromByteArray([data objectForKey:@"secret_key"]);
         [voiceMedia release];
         voiceMedia = nil;
@@ -1048,6 +1330,11 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
             } else {
                 voiceRTPSequence = 0;
                 voiceRTPTimestamp = 0;
+                voiceVideoRTPSequence = 0;
+                voiceVideoTransportSequence = 0;
+                voiceVideoPacketCount = 0;
+                voiceVideoOctetCount = 0;
+                voiceVideoLastTimestamp = 0;
                 [NSThread detachNewThreadSelector:@selector(startVoiceUDPReceiveThread) toTarget:self withObject:nil];
             }
         }
@@ -1239,7 +1526,14 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
     DLVoiceSetStatus(&voiceConnectionStatus, @"UDP media path ready; selecting encryption…");
     NSDictionary *udp = [NSDictionary dictionaryWithObjectsAndKeys:[result objectForKey:@"address"], @"address",
                          [result objectForKey:@"port"], @"port", mode, @"mode", nil];
-    NSDictionary *data = [NSDictionary dictionaryWithObjectsAndKeys:@"udp", @"protocol", udp, @"data", nil];
+    NSDictionary *opusCodec = [NSDictionary dictionaryWithObjectsAndKeys:@"opus", @"name", @"audio", @"type",
+                               [NSNumber numberWithInt:1000], @"priority", [NSNumber numberWithInt:120], @"payload_type", nil];
+    NSDictionary *h264Codec = [NSDictionary dictionaryWithObjectsAndKeys:@"H264", @"name", @"video", @"type",
+                               [NSNumber numberWithInt:1000], @"priority", [NSNumber numberWithInt:101], @"payload_type",
+                               [NSNumber numberWithInt:102], @"rtx_payload_type", [NSNumber numberWithBool:YES], @"encode",
+                               [NSNumber numberWithBool:YES], @"decode", nil];
+    NSDictionary *data = [NSDictionary dictionaryWithObjectsAndKeys:@"udp", @"protocol", udp, @"data",
+                          [NSArray arrayWithObjects:opusCodec, h264Codec, nil], @"codecs", nil];
     NSDictionary *selectProtocol = [NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithInt:1], @kWSOperation,
                                     data, @kWSData, nil];
     NSData *payload = [[CJSONSerializer serializer] serializeDictionary:selectProtocol error:nil];
@@ -1269,6 +1563,7 @@ static size_t voicewritecb(char *b, size_t size, size_t nitems, void *p) {
         case OPCodeGeneral: {
             sequenceNumber = [[res objectForKey:@kWSSequence] intValue];
             NSString *type = [res objectForKey:@kWSType];
+            if (![type isKindOfClass:[NSString class]]) break;
             if ([type isEqualToString:@"MESSAGE_CREATE"]) {
                 DLMessage *m = [[DLMessage alloc] initWithDict:[res objectForKey:@kWSData]];
                 [delegate wsDidReceiveMessage:m];

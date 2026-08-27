@@ -23,6 +23,7 @@
 #import "TagSelectionViewController.h"
 #import "DLMessageEditor.h"
 #import "DLMemberListItemViewController.h"
+#import "DLCameraCapture.h"
 
 @class DLWhiteSpinner;
 
@@ -87,7 +88,7 @@ typedef enum {
     NSButton *voiceMuteMenuButton;
     NSButton *voiceDeafenButton;
     NSButton *voiceDeafenMenuButton;
-    NSButton *voiceScreenShareButton;
+    NSButton *voiceCameraButton;
     NSButton *voiceInviteButton;
     NSButton *voiceActivityButton;
     NSButton *voiceNoiseSuppressionButton;
@@ -95,6 +96,7 @@ typedef enum {
     NSButton *voiceLeaveButton;
     NSButton *voicePopoutButton;
     NSButton *voiceFullscreenButton;
+    DLCameraCapture *voiceCameraCapture;
     NSTimer *voiceStatusTimer;
     
     IBOutlet NSView *replyToView;

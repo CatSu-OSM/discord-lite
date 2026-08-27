@@ -73,8 +73,11 @@ For the app's 10.7+ DAVE control bridge, `--dave-service` keeps the MLS
 session alive over a newline-delimited stdin/stdout protocol. It supports
 initial key-package generation plus external-sender, proposal, commit, and
 welcome processing without loading libdave into the 10.6-compatible app.
-Once an MLS epoch is active, its `ACTIVATE SSRC` and `ENCRYPT SSRC HEX` control
-commands bind the local sender ratchet to Opus media frames for the RTP layer.
+Once an MLS epoch is active, its `ACTIVATE AUDIO_SSRC VIDEO_SSRC`,
+`ENCRYPT AUDIO_SSRC HEX`, and `ENCRYPT_VIDEO VIDEO_SSRC HEX` commands bind the
+sender ratchet to Opus and H.264 media. Incoming audio uses a per-user DAVE
+decryptor. The helper also self-decrypts the first outgoing encrypted video
+frame so a DAVE framing or ratchet mismatch fails before invalid media is sent.
 
 The helper's DAVE build uses the OS X Keychain to retain the device's signing
 identity. It is therefore a 10.7+ helper feature; the 10.6.8 text target does
@@ -95,9 +98,8 @@ cmake --build "$LIBDAVE_SOURCE_DIR/build-i386-lion" --target libdave
 ```
 
 This produces `build-i386-lion/libdave.a`, a static i386 archive suitable for
-OS X 10.7.  It is a build prerequisite only: the client still needs the voice
-WebSocket, UDP/RTP, Opus, microphone, and output integration before voice chat
-is usable.
+OS X 10.7. The app delegates DAVE/MLS work to the bundled helper so the main
+10.6-compatible Objective-C target does not need to load the C++17 library.
 
 ### Media dependencies
 
@@ -120,6 +122,72 @@ links those archives automatically; building the application does not require
 Homebrew or vcpkg on the Lion Mac.  They support the 10.7+ voice path only and
 do not change the 10.6.8 text-client baseline.
 
+## How voice audio and camera video work
+
+Getting current Discord media working on Lion required implementing each layer
+explicitly while retaining the 10.6 deployment target for the text client.
+
+### Voice connection and encryption
+
+- Joining a channel sends the main Gateway voice-state update, opens the Voice
+  WebSocket, performs heartbeat/identify/resume handling, and negotiates the
+  Opus and H.264 codecs plus Discord's
+  `aead_xchacha20_poly1305_rtpsize` UDP transport.
+- UDP discovery leaves its socket connected to the Discord voice edge. Lion
+  must send subsequent RTP with `send()`; `sendto()` fails with `EISCONN` and
+  silently prevents microphone or camera packets from leaving the client.
+- Discord's mandatory DAVE E2EE is handled by the bundled 10.7+ helper. It
+  maintains the MLS epoch, persistent Keychain-backed signing identity,
+  sender/receiver ratchets, and Opus/H.264 frame encryption outside the
+  Snow-Leopard-compatible app process.
+- Helper commands are serialized because audio and camera callbacks can arrive
+  on different threads. Media does not start until the DAVE ratchet is active.
+
+### Audio path
+
+- Core Audio `AudioQueue` captures and plays signed 16-bit, 48 kHz stereo PCM.
+  Input callbacks are created on the main thread on Lion, whose curl worker
+  does not drive a CFRunLoop. Partial input buffers are combined into exact
+  20 ms / 960-frame blocks before Opus encoding.
+- The client sends Discord's Speaking update before the first encrypted RTP
+  packet, applies DAVE to the Opus frame, then applies RTP-size XChaCha20
+  transport encryption. Incoming packets reverse that process and are decoded
+  to PCM for `AudioQueue` playback.
+- Packets that arrive before a Speaking event identifies their SSRC are held in
+  a bounded queue. Voice generations prevent packets and callbacks from an old
+  connection from leaking into a rejoin.
+
+### Camera path
+
+- The Start Camera button opens Lion's built-in iSight through QTKit and shows
+  a local `QTCaptureView` preview. QuickTime `ICMCompressionSession` encodes
+  320x240 H.264 at 15 fps, with frame reordering disabled. The target links
+  `QTKit.framework`, `QuickTime.framework`, and `CoreVideo.framework`, and the
+  app declares its camera-use description.
+- QuickTime's AVCC output is converted to Annex B and keyframes include SPS and
+  PPS NAL units. Lion's encoder omits WebRTC's decoder bitstream restrictions;
+  the SPS VUI is rewritten to require zero reordered frames and a reference-
+  sized decoder buffer. Without that rewrite, the receiving Discord client
+  rejects the camera with error 2012 even though the H.264 bitstream itself is
+  independently decodable.
+- Camera negotiation uses Voice v8 stream RID `100` with type `video` in both
+  Identify and Voice Opcode 12. Type `screen` is reserved for a separate Go
+  Live connection and does not create a usable camera route.
+- The assigned video and RTX SSRCs are bound to DAVE's H.264 codec. Encrypted
+  Annex-B frames are packetized as H.264 RTP payload type 101, with FU-A
+  fragmentation for large NAL units, receiver playout-delay extension ID 6,
+  and marker bits on the final packet of a frame.
+- Encrypted RTCP sender reports are emitted once per second. Incoming RTCP
+  payload-specific feedback requests a fresh SPS/PPS/IDR keyframe so a viewer
+  can join or recover after packet loss.
+
+## Known issue
+
+The call/voice UI layout is currently broken after the media work. This is a
+separate UI regression; it does not indicate that the audio or camera transport
+failed. The layout needs a follow-up repair while preserving the working media
+pipeline.
+
 ## Current functional state
 
 ### Works
@@ -129,10 +197,13 @@ do not change the 10.6.8 text-client baseline.
 - Image and file attachments, including downloads
 - Two-factor authentication and CAPTCHA flow
 - SOCKS proxy settings
+- Voice-channel audio capture, encrypted transmission, receive, and playback
+- Camera preview and encrypted H.264 camera transmission from Lion
 
 ### Not implemented
 
-- Voice audio streaming and video chat (joining performs the voice gateway and UDP negotiation, but encrypted RTP, microphone capture, and playback are still being integrated)
+- Receiving and displaying other users' camera video in Discord Lite
+- Screen sharing / Go Live
 - Message web embeds
 - Friend requests
 
