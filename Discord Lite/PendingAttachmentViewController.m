@@ -24,8 +24,11 @@
 
         NSButton *deleteButton = [[NSButton alloc] initWithFrame:NSMakeRect(62, 60, 16, 16)];
         [deleteButton setBezelStyle:NSShadowlessSquareBezelStyle];
+        [deleteButton setBordered:NO];
         [deleteButton setImage:[NSImage imageNamed:@"delete"]];
         [deleteButton setImagePosition:NSImageOnly];
+        [[deleteButton cell] setHighlightsBy:NSNoCellMask];
+        [[deleteButton cell] setShowsStateBy:NSNoCellMask];
         [deleteButton setTarget:self];
         [deleteButton setAction:@selector(deleteItem:)];
         [view addSubview:deleteButton];
