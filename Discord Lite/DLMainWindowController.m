@@ -1274,7 +1274,9 @@ static void DLConfigureScrollView(NSScrollView *scrollView, NSView *documentView
     [chatViewHeader setFrame:NSMakeRect(338.0f, contentHeight - 42.0f, chatWidth, 42.0f)];
     [messageEntryContainerView setFrame:NSMakeRect(338.0f, 0.0f, chatWidth, entryHeight)];
     [chatScrollView setFrame:NSMakeRect(338.0f, entryHeight, chatWidth, contentHeight - 42.0f - entryHeight)];
-    [voicePanelView setFrame:[chatScrollView frame]];
+    // Voice replaces both the message history and composer. Fill their complete
+    // area so hiding the composer does not expose the window's white backing.
+    [voicePanelView setFrame:NSMakeRect(338.0f, 0.0f, chatWidth, contentHeight - 42.0f)];
     CGFloat voiceHeight = NSHeight([voicePanelView frame]);
     [voiceToolbarView setFrame:NSMakeRect(0.0f, 0.0f, chatWidth, 82.0f)];
     [voiceTitleTextField setFrame:NSMakeRect(28.0f, voiceHeight - 76.0f, chatWidth - 56.0f, 26.0f)];
